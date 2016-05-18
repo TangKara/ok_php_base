@@ -20,7 +20,7 @@ namespace OK\Util;
  * @copyright   Copyright (c) 2011-2015 Phalcon Team (team@phalconphp.com)
  * @license 	New BSD License
  */
-final class ColourTerm
+final class ColourTermUtil
 {
 
     const FG_BLACK = 1;
