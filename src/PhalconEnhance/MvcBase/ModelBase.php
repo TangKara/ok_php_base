@@ -518,7 +518,7 @@ class ModelBase extends Model implements \JsonSerializable
                 if (array_key_exists($field, $currentKvArray)) {
                     $kv[$field] = $currentKvArray[$field];
                 }
-                if (array_key_exists($field, $snapshot)) {
+                if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
                     $kvOld[$field] = $snapshot[$field];
                 }
             }
@@ -562,7 +562,7 @@ class ModelBase extends Model implements \JsonSerializable
                         $kv[$field] = $currentKvArray[$field];
                     }
 
-                    if (array_key_exists($field, $snapshot)) {
+                    if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
                         $kvOld[$field] = $snapshot[$field];
                     }
                 }
