@@ -30,7 +30,7 @@ class ValidatorKeyEnum extends Enum
     //alpha and number
     const IS_ALPHANUMERIC   	= "IS_ALPHANUMERIC";
 
-    //regex word, \w in regex, equals to \w+
+    //regex word, alpha, number and underscore (_) \w in regex, equals to \w+
     const IS_RE_WORD        	= "IS_RE_WORD";
 
     //regex word plus dash (-), equals to [\w-]+
