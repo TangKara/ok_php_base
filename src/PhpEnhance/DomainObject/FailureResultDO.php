@@ -19,7 +19,7 @@ class FailureResultDO extends ServiceResultDO
     {
         $this->success = false;
         if ($errorCode instanceof Enum) {
-            $this->errorCode = $errorCode->getValue();
+            $this->errorCode = (string)$errorCode->getValue();
             $this->errorMessage = $errorCode->getKey();
         } else {
             $this->errorCode = (string)$errorCode;
