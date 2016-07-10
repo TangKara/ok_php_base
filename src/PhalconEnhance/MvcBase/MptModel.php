@@ -11,7 +11,15 @@ namespace OK\PhalconEnhance\MvcBase;
 
 use OK\PhalconEnhance\DomainObject\ModelQueryDO;
 
-class MptModelBase extends ModelBase
+/**
+ * This is a special table to store hierarchical data (in db)
+ * Using "Modified Preorder Tree Traversal" algorithm
+ * See https://www.sitepoint.com/hierarchical-data-database-2/ for more detail
+ * 
+ * Class MptModel
+ * @package OK\PhalconEnhance\MvcBase
+ */
+class MptModel extends ModelBase
 {
     /**
      * @var string
