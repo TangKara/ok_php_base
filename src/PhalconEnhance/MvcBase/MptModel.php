@@ -15,88 +15,57 @@ use OK\PhalconEnhance\DomainObject\ModelQueryDO;
  * This is a special table to store hierarchical data (in db)
  * Using "Modified Preorder Tree Traversal" algorithm
  * See https://www.sitepoint.com/hierarchical-data-database-2/ for more detail
- * 
+ *
  * Class MptModel
  * @package OK\PhalconEnhance\MvcBase
  */
 class MptModel extends ModelBase
 {
+    /** ##### MPT builtin field name declaration ##### */
     /**
-     * @var string
+     * @return string
      */
-    protected $fieldNameOfDepth = "depth";
-
-    /**
-     * @var string
-     */
-    protected $fieldNameOfLeftValue = "left_value";
-
-    /**
-     * @var string
-     */
-    protected $fieldNameOfRightValue = "right_value";
-
-    /**
-     * @var string
-     */
-    protected $fieldNameOfRootId;
-
-    /**
-     * @param string $fieldNameOfDepth
-     * @return static
-     */
-    public function setFieldNameOfDepth($fieldNameOfDepth)
+    static protected function getFieldNameOfDepth()
     {
-        $this->fieldNameOfDepth = $fieldNameOfDepth;
-        return $this;
+        return "depth";
     }
 
     /**
-     * @param string $fieldNameOfLeftValue
-     * @return static
+     * @return string
      */
-    public function setFieldNameOfLeftValue($fieldNameOfLeftValue)
+    static protected function getFieldNameOfLeftValue()
     {
-        $this->fieldNameOfLeftValue = $fieldNameOfLeftValue;
-        return $this;
+        return "left_value";
     }
 
     /**
-     * @param string $fieldNameOfRightValue
-     * @return static
+     * @return string
      */
-    public function setFieldNameOfRightValue($fieldNameOfRightValue)
+    static protected function getFieldNameOfRightValue()
     {
-        $this->fieldNameOfRightValue = $fieldNameOfRightValue;
-        return $this;
+        return "right_value";
     }
 
     /**
-     * @param string $fieldNameOfRootId
-     * @return static
+     * @return string
      */
-    public function setFieldNameOfRootId($fieldNameOfRootId)
+    static protected function getFieldNameOfRootId()
     {
-        $this->fieldNameOfRootId = $fieldNameOfRootId;
-        return $this;
+        return "root_id";
     }
+    /** ##### MPT builtin field name declaration ##### */
 
     /**
-     * Please call this method without parameter
-     * The parameter is only used for interface declaration compatible
-     * @param array $data
-     * @param array $whiteList
+     * Please call this method instead of create()
      *
      * @return bool
      */
-    public function create($data = [], $whiteList = [])
+    public function createNode()
     {
-        unset($data, $whiteList);
-
-        $fieldNameOfDepth = $this->fieldNameOfDepth;
-        $fieldNameOfLeftValue = $this->fieldNameOfLeftValue;
-        $fieldNameOfRightValue = $this->fieldNameOfRightValue;
-        $fieldNameOfRootId = $this->fieldNameOfRootId;
+        $fieldNameOfDepth = static::getFieldNameOfDepth();
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+        $fieldNameOfRightValue = static::getFieldNameOfRightValue();
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
 
         $do = new ModelQueryDO();
         $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfLeftValue >= :$fieldNameOfLeftValue:");
@@ -145,18 +114,18 @@ class MptModel extends ModelBase
      *
      * @return bool
      */
-    public function delete()
+    public function deleteNode()
     {
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+        $fieldNameOfRightValue = static::getFieldNameOfRightValue();
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
+
         if (!$this->isLeafNode()) {
             return false;
         }
-        if (!parent::delete()) {
+        if (!$this->delete()) {
             return false;
         }
-
-        $fieldNameOfLeftValue = $this->fieldNameOfLeftValue;
-        $fieldNameOfRightValue = $this->fieldNameOfRightValue;
-        $fieldNameOfRootId = $this->fieldNameOfRootId;
 
         $do = new ModelQueryDO();
         $do->setForUpdate(true);
@@ -196,13 +165,13 @@ class MptModel extends ModelBase
      *
      * @return bool
      */
-    public function updateContent()
+    public function updateNode()
     {
         $this->skipAttributesOnUpdate([
-            $this->fieldNameOfDepth,
-            $this->fieldNameOfLeftValue,
-            $this->fieldNameOfRightValue,
-            $this->fieldNameOfRootId
+            static::getFieldNameOfDepth(),
+            static::getFieldNameOfLeftValue(),
+            static::getFieldNameOfRightValue(),
+            static::getFieldNameOfRootId()
         ]);
         return $this->update();
     }
@@ -212,8 +181,8 @@ class MptModel extends ModelBase
      */
     public function isLeafNode()
     {
-        $fieldNameOfLeftValue = $this->fieldNameOfLeftValue;
-        $fieldNameOfRightValue = $this->fieldNameOfRightValue;
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+        $fieldNameOfRightValue = static::getFieldNameOfRightValue();
         return (int)$this->$fieldNameOfRightValue - (int)$this->$fieldNameOfLeftValue === 1;
     }
 }
