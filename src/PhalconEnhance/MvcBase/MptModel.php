@@ -134,8 +134,8 @@ class MptModel extends ModelBase
         $do = new ModelQueryDO();
         $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfLeftValue >= :$fieldNameOfLeftValue:");
         $do->setBind([
-            $fieldNameOfRootId => $fieldNameOfRootId,
-            $fieldNameOfLeftValue => $fieldNameOfLeftValue
+            $fieldNameOfRootId => $this->$fieldNameOfRootId,
+            $fieldNameOfLeftValue => $this->$fieldNameOfLeftValue
         ]);
         $do->setOrderBy("$fieldNameOfLeftValue DESC");
         foreach (static::findUseDO($do) as $node) {
@@ -148,8 +148,8 @@ class MptModel extends ModelBase
         $do = new ModelQueryDO();
         $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfRightValue >= :$fieldNameOfRightValue:");
         $do->setBind([
-            $fieldNameOfRootId => $fieldNameOfRootId,
-            $fieldNameOfRightValue => $fieldNameOfLeftValue
+            $fieldNameOfRootId => $this->$fieldNameOfRootId,
+            $fieldNameOfRightValue => $this->$fieldNameOfLeftValue
         ]);
         $do->setOrderBy("$fieldNameOfRightValue DESC");
         foreach (static::findUseDO($do) as $node) {
@@ -163,13 +163,13 @@ class MptModel extends ModelBase
         $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfLeftValue < :$fieldNameOfLeftValue:
         and $fieldNameOfRightValue > :$fieldNameOfRightValue:");
         $do->setBind([
-            $fieldNameOfRootId => $fieldNameOfRootId,
-            $fieldNameOfLeftValue => $fieldNameOfLeftValue,
+            $fieldNameOfRootId => $this->$fieldNameOfRootId,
+            $fieldNameOfLeftValue => $this->$fieldNameOfLeftValue,
             $fieldNameOfRightValue => $this->$fieldNameOfRightValue
         ]);
         $this->$fieldNameOfDepth = parent::countUseDO($do) + 1;
 
-        return parent::create();
+        return $this->create();
     }
 
     /**
