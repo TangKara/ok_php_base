@@ -55,6 +55,70 @@ class MptModel extends ModelBase
     }
     /** ##### MPT builtin field name declaration ##### */
 
+    /** ##### Utilities for node list ##### */
+    const CACHE_KEY_RULE_LIST_BY_ROOT_ID = "list_by_root_id";
+    const CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE = "list_by_root_id_reverse";
+
+    /**
+     * @return array
+     */
+    static protected function getNonUniqueCacheKeyRules()
+    {
+        return [
+            self::CACHE_KEY_RULE_LIST_BY_ROOT_ID => [static::getFieldNameOfRootId()],
+            self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE => [static::getFieldNameOfRootId()]
+        ];
+    }
+    
+    /**
+     * Get all node list of a tree
+     * Root is on the top
+     * Used for UI displaying
+     *
+     * @param $rootId
+     *
+     * @return static[]
+     */
+    static public function getAllNode($rootId)
+    {
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+
+        $do = new ModelQueryDO();
+        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId:");
+        $do->setBind([
+            $fieldNameOfRootId => $rootId
+        ]);
+        $do->setOrderBy($fieldNameOfLeftValue);
+        $do->setCacheKeyRule(self::CACHE_KEY_RULE_LIST_BY_ROOT_ID);
+        return parent::findUseDO($do);
+    }
+
+    /**
+     * Get all node list of a tree, in reverse order
+     * Leaf is on the top
+     * Used for object data preparing
+     *
+     * @param $rootId
+     *
+     * @return static[]
+     */
+    static public function getAllNodeReverse($rootId)
+    {
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+
+        $do = new ModelQueryDO();
+        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId:");
+        $do->setBind([
+            $fieldNameOfRootId => $rootId
+        ]);
+        $do->setOrderBy("$fieldNameOfLeftValue DESC");
+        $do->setCacheKeyRule(self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE);
+        return parent::findUseDO($do);
+    }
+    /** ##### Utilities for node list ##### */
+
     /**
      * Please call this method instead of create()
      *
