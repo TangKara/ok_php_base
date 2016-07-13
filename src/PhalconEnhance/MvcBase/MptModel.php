@@ -55,7 +55,7 @@ class MptModel extends ModelBase
     }
     /** ##### MPT builtin field name declaration ##### */
 
-    /** ##### Utilities for node list ##### */
+    /** ##### Utilities for node query ##### */
     const CACHE_KEY_RULE_LIST_BY_ROOT_ID = "list_by_root_id";
     const CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE = "list_by_root_id_reverse";
 
@@ -67,6 +67,17 @@ class MptModel extends ModelBase
         return [
             self::CACHE_KEY_RULE_LIST_BY_ROOT_ID => [static::getFieldNameOfRootId()],
             self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE => [static::getFieldNameOfRootId()]
+        ];
+    }
+
+    /**
+     * @return array
+     */
+    static protected function getUniqueKeys()
+    {
+        return [
+            static::getFieldNameOfRootId() . "," . static::getFieldNameOfLeftValue(),
+            static::getFieldNameOfRootId() . "," . static::getFieldNameOfRightValue()
         ];
     }
     
@@ -117,7 +128,76 @@ class MptModel extends ModelBase
         $do->setCacheKeyRule(self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE);
         return parent::findUseDO($do);
     }
-    /** ##### Utilities for node list ##### */
+    /** ##### Utilities for node query ##### */
+
+    /**
+     * @param int $leftValue
+     * @return bool
+     */
+    public function createAfter($leftValue)
+    {
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+        $fieldNameOfRightValue = static::getFieldNameOfRightValue();
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
+
+        $baseNode = static::findUniqueByUK([
+            $fieldNameOfRootId => $this->$fieldNameOfRootId,
+            $fieldNameOfLeftValue => $leftValue
+        ]);
+        if ($baseNode === null) {
+            return false;
+        }
+
+        $this->$fieldNameOfLeftValue = $baseNode->$fieldNameOfRightValue + 1;
+        return $this->createNode();
+    }
+
+    /**
+     * @param int $leftValue
+     * @return bool
+     */
+    public function createBefore($leftValue)
+    {
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
+
+        $baseNode = static::findUniqueByUK([
+            $fieldNameOfRootId => $this->$fieldNameOfRootId,
+            $fieldNameOfLeftValue => $leftValue
+        ]);
+        if ($baseNode === null) {
+            return false;
+        }
+        $this->$fieldNameOfLeftValue = $leftValue;
+        return $this->createNode();
+    }
+
+    /**
+     * You can only create a node under a leaf node.
+     *
+     * @param int $leftValue
+     * @return bool
+     */
+    public function createUnder($leftValue)
+    {
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
+
+        $baseNode = static::findUniqueByUK([
+            $fieldNameOfRootId => $this->$fieldNameOfRootId,
+            $fieldNameOfLeftValue => $leftValue
+        ]);
+        if ($baseNode === null) {
+            return false;
+        }
+
+        if (!$baseNode->isLeafNode()) {
+            return false;
+        }
+
+        $this->$fieldNameOfLeftValue = $leftValue + 1;
+        return $this->createNode();
+    }
 
     /**
      * Please call this method instead of create()
@@ -130,6 +210,8 @@ class MptModel extends ModelBase
         $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
         $fieldNameOfRightValue = static::getFieldNameOfRightValue();
         $fieldNameOfRootId = static::getFieldNameOfRootId();
+        //calc right value
+        $this->$fieldNameOfRightValue = $this->$fieldNameOfLeftValue + 1;
 
         $do = new ModelQueryDO();
         $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfLeftValue >= :$fieldNameOfLeftValue:");
