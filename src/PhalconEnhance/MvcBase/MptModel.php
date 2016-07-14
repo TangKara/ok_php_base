@@ -23,6 +23,10 @@ class MptModel extends ModelBase
 {
     /** ##### MPT builtin field name declaration ##### */
     /**
+     * Field: depth
+     * The depth of current node, starts from 1, if a node does't have any parent, its depth is 1.
+     * Depth is redundant, for simplification and performance reason.
+     *
      * @return string
      */
     static protected function getFieldNameOfDepth()
@@ -31,6 +35,9 @@ class MptModel extends ModelBase
     }
 
     /**
+     * Field: left value
+     * A unique integer in a tree
+     *
      * @return string
      */
     static protected function getFieldNameOfLeftValue()
@@ -39,6 +46,9 @@ class MptModel extends ModelBase
     }
 
     /**
+     * Field: right value
+     * A unique integer in a tree
+     *
      * @return string
      */
     static protected function getFieldNameOfRightValue()
@@ -47,6 +57,10 @@ class MptModel extends ModelBase
     }
 
     /**
+     * Field: root id
+     * A tree is made of nodes with the same "root id" value
+     * With this field, we can store multi trees in the same sql table
+     *
      * @return string
      */
     static protected function getFieldNameOfRootId()
@@ -131,54 +145,17 @@ class MptModel extends ModelBase
     /** ##### Utilities for node query ##### */
 
     /**
-     * @param int $leftValue
-     * @return bool
-     */
-    public function createAfter($leftValue)
-    {
-        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
-        $fieldNameOfRightValue = static::getFieldNameOfRightValue();
-        $fieldNameOfRootId = static::getFieldNameOfRootId();
-
-        $baseNode = static::findUniqueByUK([
-            $fieldNameOfRootId => $this->$fieldNameOfRootId,
-            $fieldNameOfLeftValue => $leftValue
-        ]);
-        if ($baseNode === null) {
-            return false;
-        }
-
-        $this->$fieldNameOfLeftValue = $baseNode->$fieldNameOfRightValue + 1;
-        return $this->createNode();
-    }
-
-    /**
-     * @param int $leftValue
-     * @return bool
-     */
-    public function createBefore($leftValue)
-    {
-        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
-        $fieldNameOfRootId = static::getFieldNameOfRootId();
-
-        $baseNode = static::findUniqueByUK([
-            $fieldNameOfRootId => $this->$fieldNameOfRootId,
-            $fieldNameOfLeftValue => $leftValue
-        ]);
-        if ($baseNode === null) {
-            return false;
-        }
-        $this->$fieldNameOfLeftValue = $leftValue;
-        return $this->createNode();
-    }
-
-    /**
-     * You can only create a node under a leaf node.
+     * $a is a node already exists in db
+     * If you want insert a new node (called $b) as the first child node of $a
+     * Call this method like this: $b->createUnder($a->leftValue)
+     *
+     * Please note that, $a must be a leaf node (node without child)
+     * If $a already has children nodes, please use createAtLeftOf() and createAtRightOf()
      *
      * @param int $leftValue
      * @return bool
      */
-    public function createUnder($leftValue)
+    public function createAsChildOf($leftValue)
     {
         $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
         $fieldNameOfRootId = static::getFieldNameOfRootId();
@@ -196,16 +173,71 @@ class MptModel extends ModelBase
         }
 
         $this->$fieldNameOfLeftValue = $leftValue + 1;
-        return $this->createNode();
+        return $this->create();
     }
 
     /**
-     * Please call this method instead of create()
+     * $a is a node already exists in db
+     * If you want insert a new node (called $b) on the left hand of $a
+     * Call this method like this: $b->createAtLeftOf($a->leftValue)
      *
+     * @param int $leftValue
      * @return bool
      */
-    public function createNode()
+    public function createAtLeftOf($leftValue)
     {
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
+
+        $baseNode = static::findUniqueByUK([
+            $fieldNameOfRootId => $this->$fieldNameOfRootId,
+            $fieldNameOfLeftValue => $leftValue
+        ]);
+        if ($baseNode === null) {
+            return false;
+        }
+        $this->$fieldNameOfLeftValue = $leftValue;
+        return $this->create();
+    }
+
+    /**
+     * $a is a node already exists in db
+     * If you want insert a new node (called $b) on the right hand of $a
+     * Call this method like this: $b->createAtRightOf($a->leftValue)
+     *
+     * @param int $leftValue
+     * @return bool
+     */
+    public function createAtRightOf($leftValue)
+    {
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+        $fieldNameOfRightValue = static::getFieldNameOfRightValue();
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
+
+        $baseNode = static::findUniqueByUK([
+            $fieldNameOfRootId => $this->$fieldNameOfRootId,
+            $fieldNameOfLeftValue => $leftValue
+        ]);
+        if ($baseNode === null) {
+            return false;
+        }
+
+        $this->$fieldNameOfLeftValue = $baseNode->$fieldNameOfRightValue + 1;
+        return $this->create();
+    }
+
+    /**
+     * Use this method to create the first node of a tree
+     * Then use createAtRightOf()/createAtLeftOf()/createAsChildOf() to create other nodes
+     *
+     * @param array $data don't use this parameter, it is declared for interface compatible
+     * @param array $whiteList don't use this parameter, it is declared for interface compatible
+     * @return bool
+     */
+    public function create($data = [], $whiteList = [])
+    {
+        unset($data, $whiteList);
+
         $fieldNameOfDepth = static::getFieldNameOfDepth();
         $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
         $fieldNameOfRightValue = static::getFieldNameOfRightValue();
@@ -251,7 +283,7 @@ class MptModel extends ModelBase
         ]);
         $this->$fieldNameOfDepth = parent::countUseDO($do) + 1;
 
-        return $this->create();
+        return parent::create();
     }
 
     /**
@@ -260,7 +292,7 @@ class MptModel extends ModelBase
      *
      * @return bool
      */
-    public function deleteNode()
+    public function delete()
     {
         $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
         $fieldNameOfRightValue = static::getFieldNameOfRightValue();
@@ -269,7 +301,7 @@ class MptModel extends ModelBase
         if (!$this->isLeafNode()) {
             return false;
         }
-        if (!$this->delete()) {
+        if (!parent::delete()) {
             return false;
         }
 
@@ -306,8 +338,8 @@ class MptModel extends ModelBase
     }
 
     /**
-     * This method does not update depth, left value, right value, root id, to avoid potential mistakes
      * Please call this method instead of update()
+     * This method does not update depth, left value, right value, root id, to avoid potential bug
      *
      * @return bool
      */
@@ -323,6 +355,8 @@ class MptModel extends ModelBase
     }
 
     /**
+     * leaf node means node has no child
+     * 
      * @return bool
      */
     public function isLeafNode()
