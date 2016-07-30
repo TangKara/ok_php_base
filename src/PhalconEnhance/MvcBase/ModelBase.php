@@ -28,54 +28,33 @@ class ModelBase extends Model implements \JsonSerializable
     const CACHE_KEY_FIELD_LIST_EMPTY = "";
     const CACHE_KEY_RULE_MIN_MAX_PK_ID = "min_max_pk_id";
 
-    /** ##### Private properties ##### */
-    /**
-     * @var array
-     */
-    static private $defaultNonUniqueCacheKeyRules = [
-        self::CACHE_KEY_RULE_MIN_MAX_PK_ID => [self::CACHE_KEY_FIELD_LIST_EMPTY]
-    ];
-    /** ##### Private properties ##### */
-
-    /** ##### Properties for subclass overriding ##### */
-    /**
-     * @var bool
-     */
-    static protected $autoValidatePkIdRange = true;
-
-    /**
-     * @var string
-     */
-    static protected $cacheKeyNamespace;
-
-    /**
-     * @var string
-     */
-    static protected $cacheService;
-
-    /**
-     * @var array
-     */
-    static protected $nonUniqueCacheKeyRules = [];
-
-    /**
-     * @var string
-     */
-    static protected $pkFieldName = "id";
-
-    /**
-     * @var int
-     */
-    static protected $uniqueKeyEncodeWay = self::CACHE_KEY_ENCODE_NONE;
-
-    /**
-     * @var array
-     */
-    static protected $uniqueKeys = [];
-
-    /** ##### Properties for subclass overriding ##### */
-
     /** ##### Methods for subclass overriding ##### */
+    /**
+     * @return string
+     */
+    static protected function getCacheKeyNamespace()
+    {
+        return str_replace("\\" , "_", get_called_class()) . ".";
+    }
+
+    /**
+     * @return string
+     * <code>
+     * return ServiceName::REAL_TIME_CACHE;
+     * </code>
+     */
+    static protected function getDefaultCacheService()
+    {
+    }
+
+    /**
+     * @return string
+     */
+    static protected function getFieldNameOfPK()
+    {
+        return "id";
+    }
+
     /**
      * static::$pkFieldName will be added automatically
      * @return array
@@ -119,21 +98,10 @@ class ModelBase extends Model implements \JsonSerializable
     }
 
     /**
-     * @return string
-     * <code>
-     * return ServiceName::REAL_TIME_CACHE;
-     * </code>
+     * @return bool
      */
-    static protected function getCacheService()
+    static protected function isCacheDisabled()
     {
-    }
-
-    /**
-     * @return string
-     */
-    static protected function getCacheKeyNamespace()
-    {
-        return str_replace("\\" , "_", get_called_class()) . ".";
     }
 
     public function initialize()
@@ -154,10 +122,10 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final static public function findUniqueByPKId($id)
     {
-        if (!self::validatePkIdRange($id)) {
+        if (!self::checkPkIdRange($id)) {
             return null;
         }
-        $row = parent::findFirst(self::buildParamForUK([static::$pkFieldName => $id], false));
+        $row = parent::findFirst(self::buildParamForUK([static::getFieldNameOfPK() => $id], false));
         if ($row !== false) {
             return $row;
         } else {
@@ -171,10 +139,10 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final static public function findUniqueByPKIdForUpdate($id)
     {
-        if (!self::validatePkIdRange($id)) {
+        if (!self::checkPkIdRange($id)) {
             return null;
         }
-        $row = parent::findFirst(self::buildParamForUK([static::$pkFieldName => $id], true));
+        $row = parent::findFirst(self::buildParamForUK([static::getFieldNameOfPK() => $id], true));
         if ($row !== false) {
             return $row;
         } else {
@@ -256,7 +224,7 @@ class ModelBase extends Model implements \JsonSerializable
     {
         $idField = $configDO->getIdField();
         if ($idField === null) {
-            $idField = static::$pkFieldName;
+            $idField = static::getFieldNameOfPK();
         }
         $callback = $configDO->getCallback();
         $idStart = (int)$configDO->getIdStart();
@@ -276,140 +244,6 @@ class ModelBase extends Model implements \JsonSerializable
                 $callback($row);
             }
             $idStart += $configDO->getPageSize() + 1;
-        }
-    }
-
-    /**
-     * @param array $bind
-     * @param bool $selectForUpdate
-     * @return array
-     */
-    final static private function buildParamForUK(array $bind, $selectForUpdate)
-    {
-        $param = [];
-        $i = 0;
-        $conditions = "";
-        foreach ($bind as $field => $v) {
-            if ($i === 0) {
-                $conditions .= "$field = :$field: ";
-            } else {
-                $conditions .= " and $field = :$field:";
-            }
-            $i++;
-        }
-        $param[BuiltinKey::MODEL_CONDITIONS] = $conditions;
-        $param[BuiltinKey::MODEL_BIND] = $bind;
-        if ($selectForUpdate) {
-            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
-        } else {
-            $cacheServiceName = self::chooseCacheService();
-            if ($cacheServiceName !== null) {
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() .
-                    self::generateCacheKeyByKV($bind, static::getUniqueKeyEncodeWay());
-            }
-        }
-        return $param;
-    }
-
-    /**
-     * @param ModelQueryDO $do
-     * @return array
-     */
-    final static private function buildParam(ModelQueryDO $do)
-    {
-        $param = [];
-
-        if ($do->getColumns()) {
-            $param[BuiltinKey::MODEL_COLUMNS] = $do->getColumns();
-        }
-
-        if ($do->getDistinctColumn()) {
-            $param[BuiltinKey::MODEL_DISTINCT_COLUMN] = $do->getDistinctColumn();
-        }
-
-        if ($do->getConditions()) {
-            $param[BuiltinKey::MODEL_CONDITIONS] = $do->getConditions();
-        }
-
-        if (count($do->getBind())) {
-            $param[BuiltinKey::MODEL_BIND] = $do->getBind();
-        }
-
-        if ($do->getOrderBy()) {
-            $param[BuiltinKey::MODEL_ORDER] = $do->getOrderBy();
-        }
-
-        if ($do->getGroupBy()) {
-            $param[BuiltinKey::MODEL_GROUP] = $do->getGroupBy();
-        }
-
-        if ($do->getLimit()) {
-            if ($do->getOffset()) {
-                $param[BuiltinKey::MODEL_LIMIT] = [
-                    BuiltinKey::MODEL_LIMIT_NUMBER => $do->getLimit(),
-                    BuiltinKey::MODEL_LIMIT_OFFSET => $do->getOffset()
-                ];
-            } else {
-                $param[BuiltinKey::MODEL_LIMIT] = $do->getLimit();
-            }
-        }
-
-        if ($do->isForUpdate()) {
-            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
-        } else {
-            $cacheServiceName = self::chooseCacheService($do->getCacheService());
-            if ($do->getCacheKeyRule()) {
-                /**
-                 * We don't check if $do->getBind() returns empty array
-                 * Because empty array is allowed, for example: empty search form can lead to empty bind array
-                 * So, take care of it.
-                 */
-                $cacheKey = self::generateCacheKeyByKVAndRule($do->getBind(), $do->getCacheKeyRule());
-            } else {
-                $cacheKey = $do->getCacheKey();
-            }
-
-            if ($cacheServiceName !== null && $cacheKey) {
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() . $cacheKey;
-                if ($do->getCacheLifeTime()) {
-                    $param[BuiltinKey::MODEL_CACHE][BuiltinKey::CACHE_LIFETIME] = $do->getCacheLifeTime();
-                }
-            }
-        }
-
-        if ($do->isSharedLock()) {
-            $param[BuiltinKey::MODEL_SHARED_LOCK] = true;
-        }
-
-        return $param;
-    }
-
-    /**
-     * @param int|string $id
-     * @return bool
-     */
-    final static private function validatePkIdRange($id)
-    {
-        if (!static::$autoValidatePkIdRange) {
-            return true;
-        }
-
-        $cacheServiceName = self::chooseCacheService();
-        if ($cacheServiceName === null) {
-            return true;
-        } else {
-            $pkField = static::$pkFieldName;
-            $do = new ModelQueryDO();
-            $do->setColumns("max($pkField) as max, min($pkField) as min");
-            $do->setCacheKeyRule(self::CACHE_KEY_RULE_MIN_MAX_PK_ID);
-            $minAndMaxId = self::findFirstUseDO($do);
-            if ($id > $minAndMaxId["max"] || $id < $minAndMaxId["min"]) {
-                return false;
-            } else {
-                return true;
-            }
         }
     }
     /** ##### Utilities for DB SELECT ##### */
@@ -435,11 +269,7 @@ class ModelBase extends Model implements \JsonSerializable
     static protected function generateCacheKeyByKVAndRule(array $kvArray, $keyRule)
     {
         ksort($kvArray);
-        if (static::getNonUniqueCacheKeyRules() === null) {
-            $cacheKeyRules = self::$defaultNonUniqueCacheKeyRules;
-        } else {
-            $cacheKeyRules = array_merge(self::$defaultNonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
-        }
+        $cacheKeyRules = self::getNonUniqueCacheKeyRulesWithDefault();
         if ($cacheKeyRules[$keyRule][0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
             return $keyRule;
         } else {
@@ -487,7 +317,7 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final static protected function chooseCacheService($serviceName = null)
     {
-        $nameList = [$serviceName, static::getCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
+        $nameList = [$serviceName, self::getDefaultCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
         foreach($nameList as $name) {
             if ($name && Di::getDefault()->has($name)
                 && Di::getDefault()->get($name) instanceof BackendInterface) {
@@ -515,95 +345,8 @@ class ModelBase extends Model implements \JsonSerializable
             $snapshot = $this->getSnapshotData();
         }
 
-        $this->processCacheByUK($serviceName, $currentKvArray, $snapshot);
-        $this->processCacheByNonUK($serviceName, $currentKvArray, $snapshot);
-        return true;
-    }
-
-    /**
-     * process cache by unique key(s)
-     * @param string $serviceName
-     * @param array $currentKvArray
-     * @param array $snapshot
-     * @return bool
-     */
-    final protected function processCacheByUK($serviceName, $currentKvArray, $snapshot)
-    {
-        $uniqueKeys = static::getUniqueKeys();
-        if (static::$pkFieldName !== null) {
-            $uniqueKeys[] = static::$pkFieldName;
-        }
-
-        if (!is_array($uniqueKeys)) {
-            return true;
-        }
-
-        foreach($uniqueKeys as $ukString) {
-            $kv = [];
-            $kvOld = [];
-            foreach (explode(",", $ukString) as $field) {
-                $field = trim($field);
-                if (array_key_exists($field, $currentKvArray)) {
-                    $kv[$field] = $currentKvArray[$field];
-                }
-                if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
-                    $kvOld[$field] = $snapshot[$field];
-                }
-            }
-            if (count($kv)) {
-                $cacheKey = self::generateCacheKeyByKV($kv, static::getUniqueKeyEncodeWay());
-                self::deleteCache($serviceName, $cacheKey);
-            }
-            if (count($kvOld)) {
-                $cacheKey = self::generateCacheKeyByKV($kvOld, static::getUniqueKeyEncodeWay());
-                self::deleteCache($serviceName, $cacheKey);
-            }
-        }
-        return true;
-    }
-
-    /**
-     * process cache by unique key(s)
-     * @param string $serviceName
-     * @param array $currentKvArray
-     * @param array $snapshot
-     * @return bool
-     */
-    final protected function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
-    {
-        if (static::getNonUniqueCacheKeyRules() === null) {
-            $keyRules = self::$defaultNonUniqueCacheKeyRules;
-        } else {
-            $keyRules = array_merge(self::$defaultNonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
-        }
-
-        foreach($keyRules as $ruleName => $keyRule) {
-            $kv = [];
-            $kvOld = [];
-            if ($keyRule[0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
-                $kv = $currentKvArray;
-                $kvOld = $snapshot;
-            } else {
-                foreach (explode(",", $keyRule[0]) as $field) {
-                    $field = trim($field);
-                    if (array_key_exists($field, $currentKvArray)) {
-                        $kv[$field] = $currentKvArray[$field];
-                    }
-
-                    if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
-                        $kvOld[$field] = $snapshot[$field];
-                    }
-                }
-            }
-            if (count($kv)) {
-                $cacheKey = self::generateCacheKeyByKVAndRule($kv, $ruleName);
-                self::deleteCache($serviceName, $cacheKey);
-            }
-            if (count($kvOld)) {
-                $cacheKey = self::generateCacheKeyByKVAndRule($kvOld, $ruleName);
-                self::deleteCache($serviceName, $cacheKey);
-            }
-        }
+        self::processCacheByUK($serviceName, $currentKvArray, $snapshot);
+        self::processCacheByNonUK($serviceName, $currentKvArray, $snapshot);
         return true;
     }
 
@@ -698,4 +441,232 @@ class ModelBase extends Model implements \JsonSerializable
         }
         return true;
     }
+
+    /** ##### Private methods ##### */
+    /**
+     * @param array $bind
+     * @param bool $selectForUpdate
+     * @return array
+     */
+    final static private function buildParamForUK(array $bind, $selectForUpdate)
+    {
+        $param = [];
+        $i = 0;
+        $conditions = "";
+        foreach ($bind as $field => $v) {
+            if ($i === 0) {
+                $conditions .= "$field = :$field: ";
+            } else {
+                $conditions .= " and $field = :$field:";
+            }
+            $i++;
+        }
+        $param[BuiltinKey::MODEL_CONDITIONS] = $conditions;
+        $param[BuiltinKey::MODEL_BIND] = $bind;
+        if ($selectForUpdate) {
+            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
+        } else {
+            $defaultCacheServiceName = self::chooseCacheService();
+            if ($defaultCacheServiceName !== null) {
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $defaultCacheServiceName;
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() .
+                    self::generateCacheKeyByKV($bind, static::getUniqueKeyEncodeWay());
+            }
+        }
+        return $param;
+    }
+
+    /**
+     * @param ModelQueryDO $do
+     * @return array
+     */
+    final static private function buildParam(ModelQueryDO $do)
+    {
+        $param = [];
+
+        if ($do->getColumns()) {
+            $param[BuiltinKey::MODEL_COLUMNS] = $do->getColumns();
+        }
+
+        if ($do->getDistinctColumn()) {
+            $param[BuiltinKey::MODEL_DISTINCT_COLUMN] = $do->getDistinctColumn();
+        }
+
+        if ($do->getConditions()) {
+            $param[BuiltinKey::MODEL_CONDITIONS] = $do->getConditions();
+        }
+
+        if (count($do->getBind())) {
+            $param[BuiltinKey::MODEL_BIND] = $do->getBind();
+        }
+
+        if ($do->getOrderBy()) {
+            $param[BuiltinKey::MODEL_ORDER] = $do->getOrderBy();
+        }
+
+        if ($do->getGroupBy()) {
+            $param[BuiltinKey::MODEL_GROUP] = $do->getGroupBy();
+        }
+
+        if ($do->getLimit()) {
+            if ($do->getOffset()) {
+                $param[BuiltinKey::MODEL_LIMIT] = [
+                    BuiltinKey::MODEL_LIMIT_NUMBER => $do->getLimit(),
+                    BuiltinKey::MODEL_LIMIT_OFFSET => $do->getOffset()
+                ];
+            } else {
+                $param[BuiltinKey::MODEL_LIMIT] = $do->getLimit();
+            }
+        }
+
+        if ($do->isForUpdate()) {
+            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
+        } else {
+            $defaultCacheServiceName = self::chooseCacheService($do->getCacheService());
+            if ($do->getCacheKeyRule()) {
+                /**
+                 * We don't check if $do->getBind() returns empty array
+                 * Because empty array is allowed, for example: empty search form can lead to empty bind array
+                 * So, take care of it.
+                 */
+                $cacheKey = self::generateCacheKeyByKVAndRule($do->getBind(), $do->getCacheKeyRule());
+            } else {
+                $cacheKey = $do->getCacheKey();
+            }
+
+            if ($defaultCacheServiceName !== null && $cacheKey) {
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $defaultCacheServiceName;
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() . $cacheKey;
+                if ($do->getCacheLifeTime()) {
+                    $param[BuiltinKey::MODEL_CACHE][BuiltinKey::CACHE_LIFETIME] = $do->getCacheLifeTime();
+                }
+            }
+        }
+
+        if ($do->isSharedLock()) {
+            $param[BuiltinKey::MODEL_SHARED_LOCK] = true;
+        }
+
+        return $param;
+    }
+
+    /**
+     * @param int|string $id
+     * @return bool
+     */
+    final static private function checkPkIdRange($id)
+    {
+        $cacheServiceName = self::chooseCacheService();
+        if ($cacheServiceName === null) {
+            return true;
+        } else {
+            $pkField = static::getFieldNameOfPK();
+            $do = new ModelQueryDO();
+            $do->setColumns("max($pkField) as max, min($pkField) as min");
+            $do->setCacheKeyRule(self::CACHE_KEY_RULE_MIN_MAX_PK_ID);
+            $minAndMaxId = self::findFirstUseDO($do);
+            if ($id > $minAndMaxId["max"] || $id < $minAndMaxId["min"]) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    }
+
+    /**
+     * @return array
+     */
+    static private function getNonUniqueCacheKeyRulesWithDefault()
+    {
+        $defaultNonUniqueCacheKeyRules = [
+            self::CACHE_KEY_RULE_MIN_MAX_PK_ID => [self::CACHE_KEY_FIELD_LIST_EMPTY]
+        ];
+        if (!is_array(static::getNonUniqueCacheKeyRules())) {
+            return $defaultNonUniqueCacheKeyRules;
+        }
+        return array_merge($defaultNonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
+    }
+
+    /**
+     * process cache by unique key(s)
+     * @param string $serviceName
+     * @param array $currentKvArray
+     * @param array $snapshot
+     * @return bool
+     */
+    final private static function processCacheByUK($serviceName, $currentKvArray, $snapshot)
+    {
+        $uniqueKeys = static::getUniqueKeys();
+        if (static::getFieldNameOfPK() !== null) {
+            $uniqueKeys[] = static::getFieldNameOfPK();
+        }
+
+        if (!is_array($uniqueKeys)) {
+            return true;
+        }
+
+        foreach($uniqueKeys as $ukString) {
+            $kv = [];
+            $kvOld = [];
+            foreach (explode(",", $ukString) as $field) {
+                $field = trim($field);
+                if (array_key_exists($field, $currentKvArray)) {
+                    $kv[$field] = $currentKvArray[$field];
+                }
+                if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
+                    $kvOld[$field] = $snapshot[$field];
+                }
+            }
+            if (count($kv)) {
+                $cacheKey = self::generateCacheKeyByKV($kv, static::getUniqueKeyEncodeWay());
+                self::deleteCache($serviceName, $cacheKey);
+            }
+            if (count($kvOld)) {
+                $cacheKey = self::generateCacheKeyByKV($kvOld, static::getUniqueKeyEncodeWay());
+                self::deleteCache($serviceName, $cacheKey);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * process cache by unique key(s)
+     * @param string $serviceName
+     * @param array $currentKvArray
+     * @param array $snapshot
+     * @return bool
+     */
+    final private static function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
+    {
+        $keyRules = self::getNonUniqueCacheKeyRulesWithDefault();
+        foreach($keyRules as $ruleName => $keyRule) {
+            $kv = [];
+            $kvOld = [];
+            if ($keyRule[0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
+                $kv = $currentKvArray;
+                $kvOld = $snapshot;
+            } else {
+                foreach (explode(",", $keyRule[0]) as $field) {
+                    $field = trim($field);
+                    if (array_key_exists($field, $currentKvArray)) {
+                        $kv[$field] = $currentKvArray[$field];
+                    }
+
+                    if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
+                        $kvOld[$field] = $snapshot[$field];
+                    }
+                }
+            }
+            if (count($kv)) {
+                $cacheKey = self::generateCacheKeyByKVAndRule($kv, $ruleName);
+                self::deleteCache($serviceName, $cacheKey);
+            }
+            if (count($kvOld)) {
+                $cacheKey = self::generateCacheKeyByKVAndRule($kvOld, $ruleName);
+                self::deleteCache($serviceName, $cacheKey);
+            }
+        }
+        return true;
+    }
+    /** ##### Private methods ##### */
 }
