@@ -18,8 +18,6 @@ use Phalcon\Text;
 
 class ModelBase extends Model implements \JsonSerializable
 {
-    const CACHE_KEY_FIELD_LIST_EMPTY = "";
-
     /**
      * The cache key encode way
      */
@@ -27,15 +25,38 @@ class ModelBase extends Model implements \JsonSerializable
     const CACHE_KEY_ENCODE_BASE64 = 1;
     const CACHE_KEY_ENCODE_CRC32 = 2;
     const CACHE_KEY_ENCODE_MD5 = 3;
-
+    const CACHE_KEY_FIELD_LIST_EMPTY = "";
     const CACHE_KEY_RULE_MIN_MAX_PK_ID = "min_max_pk_id";
+
+    /** ##### Private properties ##### */
+    /**
+     * @var array
+     */
+    static private $defaultNonUniqueCacheKeyRules = [
+        self::CACHE_KEY_RULE_MIN_MAX_PK_ID => [self::CACHE_KEY_FIELD_LIST_EMPTY]
+    ];
+    /** ##### Private properties ##### */
+
+    /** ##### Properties for subclass overriding ##### */
+    /**
+     * @var bool
+     */
+    static protected $autoValidatePkIdRange = true;
+
+    /**
+     * @var string
+     */
+    static protected $cacheKeyNamespace;
+
+    /**
+     * @var string
+     */
+    static protected $cacheService;
 
     /**
      * @var array
      */
-    static private $nonUniqueCacheKeyRules = [
-        self::CACHE_KEY_RULE_MIN_MAX_PK_ID => [self::CACHE_KEY_FIELD_LIST_EMPTY]
-    ];
+    static protected $nonUniqueCacheKeyRules = [];
 
     /**
      * @var string
@@ -43,9 +64,16 @@ class ModelBase extends Model implements \JsonSerializable
     static protected $pkFieldName = "id";
 
     /**
-     * @var bool
+     * @var int
      */
-    static protected $autoValidatePkIdRange = true;
+    static protected $uniqueKeyEncodeWay = self::CACHE_KEY_ENCODE_NONE;
+
+    /**
+     * @var array
+     */
+    static protected $uniqueKeys = [];
+
+    /** ##### Properties for subclass overriding ##### */
 
     /** ##### Methods for subclass overriding ##### */
     /**
@@ -408,9 +436,9 @@ class ModelBase extends Model implements \JsonSerializable
     {
         ksort($kvArray);
         if (static::getNonUniqueCacheKeyRules() === null) {
-            $cacheKeyRules = self::$nonUniqueCacheKeyRules;
+            $cacheKeyRules = self::$defaultNonUniqueCacheKeyRules;
         } else {
-            $cacheKeyRules = array_merge(self::$nonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
+            $cacheKeyRules = array_merge(self::$defaultNonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
         }
         if ($cacheKeyRules[$keyRule][0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
             return $keyRule;
@@ -544,9 +572,9 @@ class ModelBase extends Model implements \JsonSerializable
     final protected function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
     {
         if (static::getNonUniqueCacheKeyRules() === null) {
-            $keyRules = self::$nonUniqueCacheKeyRules;
+            $keyRules = self::$defaultNonUniqueCacheKeyRules;
         } else {
-            $keyRules = array_merge(self::$nonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
+            $keyRules = array_merge(self::$defaultNonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
         }
 
         foreach($keyRules as $ruleName => $keyRule) {
@@ -625,6 +653,7 @@ class ModelBase extends Model implements \JsonSerializable
      * Process internal (protected in subclass) object members when json_encode
      *  - filtered null out
      *  - filtered parent member (in Model and ModelBase) out
+     *  - convert filed name into camel style
      * @return array
      */
     final public function JsonSerialize()
@@ -648,6 +677,7 @@ class ModelBase extends Model implements \JsonSerializable
     }
 
     /**
+     * Copy values from other instance
      * @param ModelBase $other
      * @return bool
      */
