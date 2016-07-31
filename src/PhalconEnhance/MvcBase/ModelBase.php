@@ -18,8 +18,6 @@ use Phalcon\Text;
 
 class ModelBase extends Model implements \JsonSerializable
 {
-    const CACHE_KEY_FIELD_LIST_EMPTY = "";
-
     /**
      * The cache key encode way
      */
@@ -28,6 +26,14 @@ class ModelBase extends Model implements \JsonSerializable
     const CACHE_KEY_ENCODE_CRC32 = 2;
     const CACHE_KEY_ENCODE_MD5 = 3;
 
+    /**
+     * Special field list of empty
+     */
+    const CACHE_KEY_FIELD_LIST_EMPTY = "";
+
+    /**
+     * Min max id cache key
+     */
     const CACHE_KEY_RULE_MIN_MAX_PK_ID = "min_max_pk_id";
 
     /** ##### Methods for subclass overriding ##### */
@@ -104,6 +110,33 @@ class ModelBase extends Model implements \JsonSerializable
         $this->keepSnapshots(true);
     }
 
+    /**
+     * delete cache automatically after creating
+     */
+    public function afterCreate()
+    {
+        $this->processCache();
+    }
+
+    /**
+     * delete cache automatically after deleting
+     */
+    public function afterDelete()
+    {
+        $this->processCache();
+    }
+
+    /**
+     * delete cache automatically after updating
+     */
+    public function afterUpdate()
+    {
+        $this->processCache();
+    }
+
+    /**
+     * Enable dynamic updating
+     */
     public function beforeUpdate()
     {
         $this->useDynamicUpdate(true);
@@ -111,6 +144,15 @@ class ModelBase extends Model implements \JsonSerializable
     /** ##### Methods for subclass overriding ##### */
 
     /** ##### Utilities for DB SELECT ##### */
+    /**
+     * @param ModelQueryDO $do
+     * @return int
+     */
+    final static public function countUseDO(ModelQueryDO $do)
+    {
+        return parent::count(self::buildParam($do));
+    }
+
     /**
      * @param int|string $id
      * @return static
@@ -204,15 +246,6 @@ class ModelBase extends Model implements \JsonSerializable
     }
 
     /**
-     * @param ModelQueryDO $do
-     * @return int
-     */
-    final static public function countUseDO(ModelQueryDO $do)
-    {
-        return parent::count(self::buildParam($do));
-    }
-
-    /**
      * @param FullScanUseIntIdConfigDO $configDO
      */
     final static public function fullScanUseIntId(FullScanUseIntIdConfigDO $configDO)
@@ -241,8 +274,6 @@ class ModelBase extends Model implements \JsonSerializable
             $idStart += $configDO->getPageSize() + 1;
         }
     }
-
-
     /** ##### Utilities for DB SELECT ##### */
 
     /** ##### Cache (by unique keys) auto processing ##### */
@@ -448,27 +479,6 @@ class ModelBase extends Model implements \JsonSerializable
         }
         return true;
     }
-
-    protected function afterCreate()
-    {
-        $this->processCache();
-    }
-
-    /**
-     * delete cache automatically after updating
-     */
-    protected function afterUpdate()
-    {
-        $this->processCache();
-    }
-
-    /**
-     * delete cache automatically after deleting
-     */
-    protected function afterDelete()
-    {
-        $this->processCache();
-    }
     /** ##### Cache (by unique keys) auto processing ##### */
 
     /**
@@ -520,39 +530,6 @@ class ModelBase extends Model implements \JsonSerializable
     }
 
     /** ##### Private methods ##### */
-    /**
-     * @param array $bind
-     * @param bool $selectForUpdate
-     * @return array
-     */
-    final static private function buildParamForUK(array $bind, $selectForUpdate)
-    {
-        $param = [];
-        $i = 0;
-        $conditions = "";
-        foreach ($bind as $field => $v) {
-            if ($i === 0) {
-                $conditions .= "$field = :$field: ";
-            } else {
-                $conditions .= " and $field = :$field:";
-            }
-            $i++;
-        }
-        $param[BuiltinKey::MODEL_CONDITIONS] = $conditions;
-        $param[BuiltinKey::MODEL_BIND] = $bind;
-        if ($selectForUpdate) {
-            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
-        } else {
-            $cacheServiceName = self::chooseCacheService();
-            if ($cacheServiceName !== null) {
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() .
-                    self::generateCacheKeyByKV($bind, static::getUniqueKeyEncodeWay());
-            }
-        }
-        return $param;
-    }
-
     /**
      * @param ModelQueryDO $do
      * @return array
@@ -624,6 +601,39 @@ class ModelBase extends Model implements \JsonSerializable
             $param[BuiltinKey::MODEL_SHARED_LOCK] = true;
         }
 
+        return $param;
+    }
+
+    /**
+     * @param array $bind
+     * @param bool $selectForUpdate
+     * @return array
+     */
+    final static private function buildParamForUK(array $bind, $selectForUpdate)
+    {
+        $param = [];
+        $i = 0;
+        $conditions = "";
+        foreach ($bind as $field => $v) {
+            if ($i === 0) {
+                $conditions .= "$field = :$field: ";
+            } else {
+                $conditions .= " and $field = :$field:";
+            }
+            $i++;
+        }
+        $param[BuiltinKey::MODEL_CONDITIONS] = $conditions;
+        $param[BuiltinKey::MODEL_BIND] = $bind;
+        if ($selectForUpdate) {
+            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
+        } else {
+            $cacheServiceName = self::chooseCacheService();
+            if ($cacheServiceName !== null) {
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() .
+                    self::generateCacheKeyByKV($bind, static::getUniqueKeyEncodeWay());
+            }
+        }
         return $param;
     }
 
