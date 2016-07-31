@@ -284,9 +284,32 @@ class ModelBase extends Model implements \JsonSerializable
     /** ##### Utilities for DB SELECT ##### */
 
     /**
+     * @param ModelBase $other
+     * @return bool
+     */
+    final public function copyPropFrom(ModelBase $other)
+    {
+        $modelClassName = get_class($this);
+        if (get_class($other) !== $modelClassName) {
+            return false;
+        }
+
+        $ref = new \ReflectionClass($modelClassName);
+        foreach ($ref->getProperties() as $refProp) {
+            $propName = $refProp->name;
+            if ($refProp->class === $modelClassName && $other->$propName !== null
+                && $this->$propName !== $other->$propName) {
+                $this->$propName = $other->$propName;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Process internal (protected in subclass) object members when json_encode
      *  - filtered null out
      *  - filtered parent member (in Model and ModelBase) out
+     *  - convert field name into camel style
      * @return array
      */
     final public function JsonSerialize()
@@ -307,28 +330,6 @@ class ModelBase extends Model implements \JsonSerializable
             }
         }
         return $return;
-    }
-
-    /**
-     * @param ModelBase $other
-     * @return bool
-     */
-    final public function copyPropFrom(ModelBase $other)
-    {
-        $modelClassName = get_class($this);
-        if (get_class($other) !== $modelClassName) {
-            return false;
-        }
-
-        $ref = new \ReflectionClass($modelClassName);
-        foreach ($ref->getProperties() as $refProp) {
-            $propName = $refProp->name;
-            if ($refProp->class === $modelClassName && $other->$propName !== null
-                && $this->$propName !== $other->$propName) {
-                $this->$propName = $other->$propName;
-            }
-        }
-        return true;
     }
 
     /** ##### Private methods ##### */
