@@ -99,7 +99,7 @@ class ModelBase extends Model implements \JsonSerializable
      * return ServiceName::REAL_TIME_CACHE;
      * </code>
      */
-    static protected function getCacheService()
+    static protected function getDefaultCacheService()
     {
     }
 
