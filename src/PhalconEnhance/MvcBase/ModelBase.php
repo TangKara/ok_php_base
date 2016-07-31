@@ -30,13 +30,6 @@ class ModelBase extends Model implements \JsonSerializable
 
     const CACHE_KEY_RULE_MIN_MAX_PK_ID = "min_max_pk_id";
 
-    /**
-     * @var array
-     */
-    static private $nonUniqueCacheKeyRules = [
-        self::CACHE_KEY_RULE_MIN_MAX_PK_ID => [self::CACHE_KEY_FIELD_LIST_EMPTY]
-    ];
-
     /** ##### Methods for subclass overriding ##### */
     /**
      * @return string
@@ -272,12 +265,7 @@ class ModelBase extends Model implements \JsonSerializable
      */
     static protected function generateCacheKeyByKVAndRule(array $kvArray, $keyRule)
     {
-        ksort($kvArray);
-        if (static::getNonUniqueCacheKeyRules() === null) {
-            $cacheKeyRules = self::$nonUniqueCacheKeyRules;
-        } else {
-            $cacheKeyRules = array_merge(self::$nonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
-        }
+        $cacheKeyRules = self::getNonUniqueCacheKeyRulesWithDefault();
         if ($cacheKeyRules[$keyRule][0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
             return $keyRule;
         } else {
@@ -285,6 +273,7 @@ class ModelBase extends Model implements \JsonSerializable
             if (isset($cacheKeyRules[$keyRule][1])) {
                 $encodeWay = $cacheKeyRules[$keyRule][1];
             }
+            ksort($kvArray);
             return $keyRule . "." . self::encodeSortedValue($kvArray, $encodeWay);
         }
     }
@@ -409,12 +398,7 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final protected function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
     {
-        if (static::getNonUniqueCacheKeyRules() === null) {
-            $keyRules = self::$nonUniqueCacheKeyRules;
-        } else {
-            $keyRules = array_merge(self::$nonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
-        }
-
+        $keyRules = self::getNonUniqueCacheKeyRulesWithDefault();
         foreach($keyRules as $ruleName => $keyRule) {
             $kv = [];
             $kvOld = [];
@@ -641,6 +625,20 @@ class ModelBase extends Model implements \JsonSerializable
         }
 
         return $param;
+    }
+
+    /**
+     * @return array
+     */
+    static private function getNonUniqueCacheKeyRulesWithDefault()
+    {
+        $defaultNonUniqueCacheKeyRules = [
+            self::CACHE_KEY_RULE_MIN_MAX_PK_ID => [self::CACHE_KEY_FIELD_LIST_EMPTY]
+        ];
+        if (!is_array(static::getNonUniqueCacheKeyRules())) {
+            return $defaultNonUniqueCacheKeyRules;
+        }
+        return array_merge($defaultNonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
     }
 
     /**
