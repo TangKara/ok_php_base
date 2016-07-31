@@ -488,7 +488,7 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final static private function chooseCacheService($serviceName = null)
     {
-        if (self::isCacheDisabled()) {
+        if (static::isCacheDisabled()) {
             return null;
         }
         $nameList = [$serviceName, static::getDefaultCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
