@@ -105,6 +105,13 @@ class ModelBase extends Model implements \JsonSerializable
     {
     }
 
+    /**
+     * @return bool
+     */
+    static protected function isCacheDisabled()
+    {
+    }
+
     public function initialize()
     {
         $this->keepSnapshots(true);
@@ -474,13 +481,16 @@ class ModelBase extends Model implements \JsonSerializable
     /**
      * Choose cache service, follow this order:
      * 1. passed by the parameter
-     * 2. returned via Model::getCacheService()
+     * 2. returned via Model::getDefaultCacheService()
      * 3. injected via DI
      * @param string $serviceName
      * @return string
      */
     final static private function chooseCacheService($serviceName = null)
     {
+        if (self::isCacheDisabled()) {
+            return null;
+        }
         $nameList = [$serviceName, static::getDefaultCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
         foreach($nameList as $name) {
             if ($name && Di::getDefault()->has($name)
@@ -576,8 +586,8 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final private function processCache()
     {
-        $serviceName = self::chooseCacheService();
-        if ($serviceName === null) {
+        $cacheServiceName = self::chooseCacheService();
+        if ($cacheServiceName === null) {
             return true;
         }
 
@@ -587,8 +597,8 @@ class ModelBase extends Model implements \JsonSerializable
             $snapshot = $this->getSnapshotData();
         }
 
-        self::processCacheByUK($serviceName, $currentKvArray, $snapshot);
-        self::processCacheByNonUK($serviceName, $currentKvArray, $snapshot);
+        self::processCacheByUK($cacheServiceName, $currentKvArray, $snapshot);
+        self::processCacheByNonUK($cacheServiceName, $currentKvArray, $snapshot);
         return true;
     }
 
