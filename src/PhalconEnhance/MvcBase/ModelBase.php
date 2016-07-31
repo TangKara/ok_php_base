@@ -37,33 +37,31 @@ class ModelBase extends Model implements \JsonSerializable
         self::CACHE_KEY_RULE_MIN_MAX_PK_ID => [self::CACHE_KEY_FIELD_LIST_EMPTY]
     ];
 
-    /**
-     * @var bool
-     */
-    static protected $autoValidatePkIdRange = true;
-
     /** ##### Methods for subclass overriding ##### */
+    /**
+     * @return string
+     */
+    static protected function getCacheKeyNamespace()
+    {
+        return str_replace("\\" , "_", get_called_class()) . ".";
+    }
+
+    /**
+     * @return string
+     * <code>
+     * return ServiceName::REAL_TIME_CACHE;
+     * </code>
+     */
+    static protected function getDefaultCacheService()
+    {
+    }
+
     /**
      * @return string
      */
     static protected function getFieldNameOfPK()
     {
         return "id";
-    }
-
-    /**
-     * static::$pkFieldName will be added automatically
-     * @return array
-     * <code>
-     * return [
-     *  "name,version",
-     *  field list
-     * ];
-     * </code>
-     *
-     */
-    static protected function getUniqueKeys()
-    {
     }
 
     /**
@@ -94,21 +92,18 @@ class ModelBase extends Model implements \JsonSerializable
     }
 
     /**
-     * @return string
+     * static::$pkFieldName will be added automatically
+     * @return array
      * <code>
-     * return ServiceName::REAL_TIME_CACHE;
+     * return [
+     *  "name,version",
+     *  field list
+     * ];
      * </code>
+     *
      */
-    static protected function getDefaultCacheService()
+    static protected function getUniqueKeys()
     {
-    }
-
-    /**
-     * @return string
-     */
-    static protected function getCacheKeyNamespace()
-    {
-        return str_replace("\\" , "_", get_called_class()) . ".";
     }
 
     public function initialize()
@@ -254,135 +249,7 @@ class ModelBase extends Model implements \JsonSerializable
         }
     }
 
-    /**
-     * @param array $bind
-     * @param bool $selectForUpdate
-     * @return array
-     */
-    final static private function buildParamForUK(array $bind, $selectForUpdate)
-    {
-        $param = [];
-        $i = 0;
-        $conditions = "";
-        foreach ($bind as $field => $v) {
-            if ($i === 0) {
-                $conditions .= "$field = :$field: ";
-            } else {
-                $conditions .= " and $field = :$field:";
-            }
-            $i++;
-        }
-        $param[BuiltinKey::MODEL_CONDITIONS] = $conditions;
-        $param[BuiltinKey::MODEL_BIND] = $bind;
-        if ($selectForUpdate) {
-            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
-        } else {
-            $cacheServiceName = self::chooseCacheService();
-            if ($cacheServiceName !== null) {
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() .
-                    self::generateCacheKeyByKV($bind, static::getUniqueKeyEncodeWay());
-            }
-        }
-        return $param;
-    }
 
-    /**
-     * @param ModelQueryDO $do
-     * @return array
-     */
-    final static private function buildParam(ModelQueryDO $do)
-    {
-        $param = [];
-
-        if ($do->getColumns()) {
-            $param[BuiltinKey::MODEL_COLUMNS] = $do->getColumns();
-        }
-
-        if ($do->getDistinctColumn()) {
-            $param[BuiltinKey::MODEL_DISTINCT_COLUMN] = $do->getDistinctColumn();
-        }
-
-        if ($do->getConditions()) {
-            $param[BuiltinKey::MODEL_CONDITIONS] = $do->getConditions();
-        }
-
-        if (count($do->getBind())) {
-            $param[BuiltinKey::MODEL_BIND] = $do->getBind();
-        }
-
-        if ($do->getOrderBy()) {
-            $param[BuiltinKey::MODEL_ORDER] = $do->getOrderBy();
-        }
-
-        if ($do->getGroupBy()) {
-            $param[BuiltinKey::MODEL_GROUP] = $do->getGroupBy();
-        }
-
-        if ($do->getLimit()) {
-            if ($do->getOffset()) {
-                $param[BuiltinKey::MODEL_LIMIT] = [
-                    BuiltinKey::MODEL_LIMIT_NUMBER => $do->getLimit(),
-                    BuiltinKey::MODEL_LIMIT_OFFSET => $do->getOffset()
-                ];
-            } else {
-                $param[BuiltinKey::MODEL_LIMIT] = $do->getLimit();
-            }
-        }
-
-        if ($do->isForUpdate()) {
-            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
-        } else {
-            $cacheServiceName = self::chooseCacheService($do->getCacheService());
-            if ($do->getCacheKeyRule()) {
-                /**
-                 * We don't check if $do->getBind() returns empty array
-                 * Because empty array is allowed, for example: empty search form can lead to empty bind array
-                 * So, take care of it.
-                 */
-                $cacheKey = self::generateCacheKeyByKVAndRule($do->getBind(), $do->getCacheKeyRule());
-            } else {
-                $cacheKey = $do->getCacheKey();
-            }
-
-            if ($cacheServiceName !== null && $cacheKey) {
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() . $cacheKey;
-                if ($do->getCacheLifeTime()) {
-                    $param[BuiltinKey::MODEL_CACHE][BuiltinKey::CACHE_LIFETIME] = $do->getCacheLifeTime();
-                }
-            }
-        }
-
-        if ($do->isSharedLock()) {
-            $param[BuiltinKey::MODEL_SHARED_LOCK] = true;
-        }
-
-        return $param;
-    }
-
-    /**
-     * @param int|string $id
-     * @return bool
-     */
-    final static private function validatePkIdRange($id)
-    {
-        $cacheServiceName = self::chooseCacheService();
-        if ($cacheServiceName === null) {
-            return true;
-        } else {
-            $pkField = static::getFieldNameOfPK();
-            $do = new ModelQueryDO();
-            $do->setColumns("max($pkField) as max, min($pkField) as min");
-            $do->setCacheKeyRule(self::CACHE_KEY_RULE_MIN_MAX_PK_ID);
-            $minAndMaxId = self::findFirstUseDO($do);
-            if ($id > $minAndMaxId["max"] || $id < $minAndMaxId["min"]) {
-                return false;
-            } else {
-                return true;
-            }
-        }
-    }
     /** ##### Utilities for DB SELECT ##### */
 
     /** ##### Cache (by unique keys) auto processing ##### */
@@ -667,4 +534,136 @@ class ModelBase extends Model implements \JsonSerializable
         }
         return true;
     }
+
+    /** ##### Private methods ##### */
+    /**
+     * @param array $bind
+     * @param bool $selectForUpdate
+     * @return array
+     */
+    final static private function buildParamForUK(array $bind, $selectForUpdate)
+    {
+        $param = [];
+        $i = 0;
+        $conditions = "";
+        foreach ($bind as $field => $v) {
+            if ($i === 0) {
+                $conditions .= "$field = :$field: ";
+            } else {
+                $conditions .= " and $field = :$field:";
+            }
+            $i++;
+        }
+        $param[BuiltinKey::MODEL_CONDITIONS] = $conditions;
+        $param[BuiltinKey::MODEL_BIND] = $bind;
+        if ($selectForUpdate) {
+            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
+        } else {
+            $cacheServiceName = self::chooseCacheService();
+            if ($cacheServiceName !== null) {
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() .
+                    self::generateCacheKeyByKV($bind, static::getUniqueKeyEncodeWay());
+            }
+        }
+        return $param;
+    }
+
+    /**
+     * @param ModelQueryDO $do
+     * @return array
+     */
+    final static private function buildParam(ModelQueryDO $do)
+    {
+        $param = [];
+
+        if ($do->getColumns()) {
+            $param[BuiltinKey::MODEL_COLUMNS] = $do->getColumns();
+        }
+
+        if ($do->getDistinctColumn()) {
+            $param[BuiltinKey::MODEL_DISTINCT_COLUMN] = $do->getDistinctColumn();
+        }
+
+        if ($do->getConditions()) {
+            $param[BuiltinKey::MODEL_CONDITIONS] = $do->getConditions();
+        }
+
+        if (count($do->getBind())) {
+            $param[BuiltinKey::MODEL_BIND] = $do->getBind();
+        }
+
+        if ($do->getOrderBy()) {
+            $param[BuiltinKey::MODEL_ORDER] = $do->getOrderBy();
+        }
+
+        if ($do->getGroupBy()) {
+            $param[BuiltinKey::MODEL_GROUP] = $do->getGroupBy();
+        }
+
+        if ($do->getLimit()) {
+            if ($do->getOffset()) {
+                $param[BuiltinKey::MODEL_LIMIT] = [
+                    BuiltinKey::MODEL_LIMIT_NUMBER => $do->getLimit(),
+                    BuiltinKey::MODEL_LIMIT_OFFSET => $do->getOffset()
+                ];
+            } else {
+                $param[BuiltinKey::MODEL_LIMIT] = $do->getLimit();
+            }
+        }
+
+        if ($do->isForUpdate()) {
+            $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
+        } else {
+            $cacheServiceName = self::chooseCacheService($do->getCacheService());
+            if ($do->getCacheKeyRule()) {
+                /**
+                 * We don't check if $do->getBind() returns empty array
+                 * Because empty array is allowed, for example: empty search form can lead to empty bind array
+                 * So, take care of it.
+                 */
+                $cacheKey = self::generateCacheKeyByKVAndRule($do->getBind(), $do->getCacheKeyRule());
+            } else {
+                $cacheKey = $do->getCacheKey();
+            }
+
+            if ($cacheServiceName !== null && $cacheKey) {
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() . $cacheKey;
+                if ($do->getCacheLifeTime()) {
+                    $param[BuiltinKey::MODEL_CACHE][BuiltinKey::CACHE_LIFETIME] = $do->getCacheLifeTime();
+                }
+            }
+        }
+
+        if ($do->isSharedLock()) {
+            $param[BuiltinKey::MODEL_SHARED_LOCK] = true;
+        }
+
+        return $param;
+    }
+
+    /**
+     * @param int|string $id
+     * @return bool
+     */
+    final static private function validatePkIdRange($id)
+    {
+        $cacheServiceName = self::chooseCacheService();
+        if ($cacheServiceName === null) {
+            return true;
+        } else {
+            $pkField = static::getFieldNameOfPK();
+            $do = new ModelQueryDO();
+            $do->setColumns("max($pkField) as max, min($pkField) as min");
+            $do->setCacheKeyRule(self::CACHE_KEY_RULE_MIN_MAX_PK_ID);
+            $minAndMaxId = self::findFirstUseDO($do);
+            if ($id > $minAndMaxId["max"] || $id < $minAndMaxId["min"]) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    }
+    /** ##### Private methods ##### */
 }
