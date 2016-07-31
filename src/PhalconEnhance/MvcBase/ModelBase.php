@@ -38,16 +38,19 @@ class ModelBase extends Model implements \JsonSerializable
     ];
 
     /**
-     * @var string
-     */
-    static protected $pkFieldName = "id";
-
-    /**
      * @var bool
      */
     static protected $autoValidatePkIdRange = true;
 
     /** ##### Methods for subclass overriding ##### */
+    /**
+     * @return string
+     */
+    static protected function getFieldNameOfPK()
+    {
+        return "id";
+    }
+
     /**
      * static::$pkFieldName will be added automatically
      * @return array
