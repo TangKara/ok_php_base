@@ -342,8 +342,8 @@ class ModelBase extends Model implements \JsonSerializable
             $snapshot = $this->getSnapshotData();
         }
 
-        $this->processCacheByUK($serviceName, $currentKvArray, $snapshot);
-        $this->processCacheByNonUK($serviceName, $currentKvArray, $snapshot);
+        self::processCacheByUK($serviceName, $currentKvArray, $snapshot);
+        self::processCacheByNonUK($serviceName, $currentKvArray, $snapshot);
         return true;
     }
 
@@ -354,7 +354,7 @@ class ModelBase extends Model implements \JsonSerializable
      * @param array $snapshot
      * @return bool
      */
-    final protected function processCacheByUK($serviceName, $currentKvArray, $snapshot)
+    final protected static function processCacheByUK($serviceName, $currentKvArray, $snapshot)
     {
         $uniqueKeys = static::getUniqueKeys();
         if (static::getFieldNameOfPK() !== null) {
@@ -396,7 +396,7 @@ class ModelBase extends Model implements \JsonSerializable
      * @param array $snapshot
      * @return bool
      */
-    final protected function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
+    final protected static function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
     {
         $keyRules = self::getNonUniqueCacheKeyRulesWithDefault();
         foreach($keyRules as $ruleName => $keyRule) {
