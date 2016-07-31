@@ -132,7 +132,7 @@ class ModelBase extends Model implements \JsonSerializable
         if (!self::validatePkIdRange($id)) {
             return null;
         }
-        $row = parent::findFirst(self::buildParamForUK([static::$pkFieldName => $id], false));
+        $row = parent::findFirst(self::buildParamForUK([static::getFieldNameOfPK() => $id], false));
         if ($row !== false) {
             return $row;
         } else {
@@ -149,7 +149,7 @@ class ModelBase extends Model implements \JsonSerializable
         if (!self::validatePkIdRange($id)) {
             return null;
         }
-        $row = parent::findFirst(self::buildParamForUK([static::$pkFieldName => $id], true));
+        $row = parent::findFirst(self::buildParamForUK([static::getFieldNameOfPK() => $id], true));
         if ($row !== false) {
             return $row;
         } else {
@@ -231,7 +231,7 @@ class ModelBase extends Model implements \JsonSerializable
     {
         $idField = $configDO->getIdField();
         if ($idField === null) {
-            $idField = static::$pkFieldName;
+            $idField = static::getFieldNameOfPK();
         }
         $callback = $configDO->getCallback();
         $idStart = (int)$configDO->getIdStart();
@@ -367,15 +367,11 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final static private function validatePkIdRange($id)
     {
-        if (!static::$autoValidatePkIdRange) {
-            return true;
-        }
-
         $cacheServiceName = self::chooseCacheService();
         if ($cacheServiceName === null) {
             return true;
         } else {
-            $pkField = static::$pkFieldName;
+            $pkField = static::getFieldNameOfPK();
             $do = new ModelQueryDO();
             $do->setColumns("max($pkField) as max, min($pkField) as min");
             $do->setCacheKeyRule(self::CACHE_KEY_RULE_MIN_MAX_PK_ID);
@@ -462,7 +458,7 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final static protected function chooseCacheService($serviceName = null)
     {
-        $nameList = [$serviceName, static::getCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
+        $nameList = [$serviceName, static::getDefaultCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
         foreach($nameList as $name) {
             if ($name && Di::getDefault()->has($name)
                 && Di::getDefault()->get($name) instanceof BackendInterface) {
@@ -505,8 +501,8 @@ class ModelBase extends Model implements \JsonSerializable
     final protected function processCacheByUK($serviceName, $currentKvArray, $snapshot)
     {
         $uniqueKeys = static::getUniqueKeys();
-        if (static::$pkFieldName !== null) {
-            $uniqueKeys[] = static::$pkFieldName;
+        if (static::getFieldNameOfPK() !== null) {
+            $uniqueKeys[] = static::getFieldNameOfPK();
         }
 
         if (!is_array($uniqueKeys)) {
