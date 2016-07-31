@@ -42,7 +42,7 @@ class ModelBase extends Model implements \JsonSerializable
      */
     static protected function getCacheKeyNamespace()
     {
-        return str_replace("\\" , "_", get_called_class()) . ".";
+        return str_replace("\\", "_", get_called_class()) . ".";
     }
 
     /**
@@ -270,7 +270,7 @@ class ModelBase extends Model implements \JsonSerializable
 
         $modelQueryDO = new ModelQueryDO();
         $modelQueryDO->setConditions("$idField BETWEEN :id_start: AND :id_end:");
-        while($idStart <= $maxId) {
+        while ($idStart <= $maxId) {
             $modelQueryDO->setBind([
                 "id_start" => $idStart,
                 "id_end" => $idStart + $configDO->getPageSize()
@@ -298,7 +298,8 @@ class ModelBase extends Model implements \JsonSerializable
         foreach ($ref->getProperties() as $refProp) {
             $propName = $refProp->name;
             if ($refProp->class === $modelClassName && $other->$propName !== null
-                && $this->$propName !== $other->$propName) {
+                && $this->$propName !== $other->$propName
+            ) {
                 $this->$propName = $other->$propName;
             }
         }
@@ -493,9 +494,10 @@ class ModelBase extends Model implements \JsonSerializable
             return null;
         }
         $nameList = [$serviceName, static::getDefaultCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
-        foreach($nameList as $name) {
+        foreach ($nameList as $name) {
             if ($name && Di::getDefault()->has($name)
-                && Di::getDefault()->get($name) instanceof BackendInterface) {
+                && Di::getDefault()->get($name) instanceof BackendInterface
+            ) {
                 return $name;
             }
         }
@@ -621,7 +623,7 @@ class ModelBase extends Model implements \JsonSerializable
             return true;
         }
 
-        foreach($uniqueKeys as $ukString) {
+        foreach ($uniqueKeys as $ukString) {
             $kv = [];
             $kvOld = [];
             foreach (explode(",", $ukString) as $field) {
@@ -655,7 +657,7 @@ class ModelBase extends Model implements \JsonSerializable
     final private static function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
     {
         $keyRules = self::getNonUniqueCacheKeyRulesWithDefault();
-        foreach($keyRules as $ruleName => $keyRule) {
+        foreach ($keyRules as $ruleName => $keyRule) {
             $kv = [];
             $kvOld = [];
             if ($keyRule[0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
