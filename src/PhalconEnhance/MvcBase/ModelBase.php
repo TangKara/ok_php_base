@@ -18,6 +18,8 @@ use Phalcon\Text;
 
 class ModelBase extends Model implements \JsonSerializable
 {
+    const CACHE_KEY_FIELD_LIST_EMPTY = "";
+
     /**
      * The cache key encode way
      */
@@ -25,36 +27,27 @@ class ModelBase extends Model implements \JsonSerializable
     const CACHE_KEY_ENCODE_BASE64 = 1;
     const CACHE_KEY_ENCODE_CRC32 = 2;
     const CACHE_KEY_ENCODE_MD5 = 3;
-    const CACHE_KEY_FIELD_LIST_EMPTY = "";
+
     const CACHE_KEY_RULE_MIN_MAX_PK_ID = "min_max_pk_id";
 
+    /**
+     * @var array
+     */
+    static private $nonUniqueCacheKeyRules = [
+        self::CACHE_KEY_RULE_MIN_MAX_PK_ID => [self::CACHE_KEY_FIELD_LIST_EMPTY]
+    ];
+
+    /**
+     * @var string
+     */
+    static protected $pkFieldName = "id";
+
+    /**
+     * @var bool
+     */
+    static protected $autoValidatePkIdRange = true;
+
     /** ##### Methods for subclass overriding ##### */
-    /**
-     * @return string
-     */
-    static protected function getCacheKeyNamespace()
-    {
-        return str_replace("\\" , "_", get_called_class()) . ".";
-    }
-
-    /**
-     * @return string
-     * <code>
-     * return ServiceName::REAL_TIME_CACHE;
-     * </code>
-     */
-    static protected function getDefaultCacheService()
-    {
-    }
-
-    /**
-     * @return string
-     */
-    static protected function getFieldNameOfPK()
-    {
-        return "id";
-    }
-
     /**
      * static::$pkFieldName will be added automatically
      * @return array
@@ -98,10 +91,21 @@ class ModelBase extends Model implements \JsonSerializable
     }
 
     /**
-     * @return bool
+     * @return string
+     * <code>
+     * return ServiceName::REAL_TIME_CACHE;
+     * </code>
      */
-    static protected function isCacheDisabled()
+    static protected function getCacheService()
     {
+    }
+
+    /**
+     * @return string
+     */
+    static protected function getCacheKeyNamespace()
+    {
+        return str_replace("\\" , "_", get_called_class()) . ".";
     }
 
     public function initialize()
@@ -122,10 +126,10 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final static public function findUniqueByPKId($id)
     {
-        if (!self::checkPkIdRange($id)) {
+        if (!self::validatePkIdRange($id)) {
             return null;
         }
-        $row = parent::findFirst(self::buildParamForUK([static::getFieldNameOfPK() => $id], false));
+        $row = parent::findFirst(self::buildParamForUK([static::$pkFieldName => $id], false));
         if ($row !== false) {
             return $row;
         } else {
@@ -139,10 +143,10 @@ class ModelBase extends Model implements \JsonSerializable
      */
     final static public function findUniqueByPKIdForUpdate($id)
     {
-        if (!self::checkPkIdRange($id)) {
+        if (!self::validatePkIdRange($id)) {
             return null;
         }
-        $row = parent::findFirst(self::buildParamForUK([static::getFieldNameOfPK() => $id], true));
+        $row = parent::findFirst(self::buildParamForUK([static::$pkFieldName => $id], true));
         if ($row !== false) {
             return $row;
         } else {
@@ -224,7 +228,7 @@ class ModelBase extends Model implements \JsonSerializable
     {
         $idField = $configDO->getIdField();
         if ($idField === null) {
-            $idField = static::getFieldNameOfPK();
+            $idField = static::$pkFieldName;
         }
         $callback = $configDO->getCallback();
         $idStart = (int)$configDO->getIdStart();
@@ -246,203 +250,7 @@ class ModelBase extends Model implements \JsonSerializable
             $idStart += $configDO->getPageSize() + 1;
         }
     }
-    /** ##### Utilities for DB SELECT ##### */
 
-    /** ##### Cache (by unique keys) auto processing ##### */
-    /**
-     * @param array $uniqueKeysAndValues
-     * @param int $encodeWay
-     * @return string
-     */
-    static protected function generateCacheKeyByKV(array $uniqueKeysAndValues, $encodeWay)
-    {
-        ksort($uniqueKeysAndValues);
-        return implode("-", array_keys($uniqueKeysAndValues)) . "." .
-        self::encodeSortedValue($uniqueKeysAndValues, $encodeWay);
-    }
-
-    /**
-     * @param array $kvArray
-     * @param string $keyRule
-     * @return string
-     */
-    static protected function generateCacheKeyByKVAndRule(array $kvArray, $keyRule)
-    {
-        ksort($kvArray);
-        $cacheKeyRules = self::getNonUniqueCacheKeyRulesWithDefault();
-        if ($cacheKeyRules[$keyRule][0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
-            return $keyRule;
-        } else {
-            $encodeWay = self::CACHE_KEY_ENCODE_NONE;
-            if (isset($cacheKeyRules[$keyRule][1])) {
-                $encodeWay = $cacheKeyRules[$keyRule][1];
-            }
-            return $keyRule . "." . self::encodeSortedValue($kvArray, $encodeWay);
-        }
-    }
-
-    /**
-     * @param array $kvArray
-     * @param int $encodeWay
-     * @return string
-     */
-    static protected function encodeSortedValue($kvArray, $encodeWay)
-    {
-        $valueString = implode("-", array_values($kvArray));
-        switch ($encodeWay) {
-            case self::CACHE_KEY_ENCODE_BASE64:
-                $cacheKey = StringUtil::base64EncodeWithoutSlash($valueString);
-                break;
-            case self::CACHE_KEY_ENCODE_CRC32:
-                $cacheKey = crc32($valueString);
-                break;
-            case self::CACHE_KEY_ENCODE_MD5:
-                $cacheKey = md5($valueString);
-                break;
-            case self::CACHE_KEY_ENCODE_NONE:
-            default:
-                $cacheKey = $valueString;
-                break;
-        }
-        return $cacheKey;
-    }
-
-    /**
-     * Choose cache service, follow this order:
-     * 1. passed by the parameter
-     * 2. returned via Model::getCacheService()
-     * 3. injected via DI
-     * @param string $serviceName
-     * @return string
-     */
-    final static protected function chooseCacheService($serviceName = null)
-    {
-        $nameList = [$serviceName, self::getDefaultCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
-        foreach($nameList as $name) {
-            if ($name && Di::getDefault()->has($name)
-                && Di::getDefault()->get($name) instanceof BackendInterface) {
-                return $name;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * process cache
-     * @return bool
-     */
-    final protected function processCache()
-    {
-        $serviceName = self::chooseCacheService();
-        if ($serviceName === null) {
-            return true;
-        }
-
-        $currentKvArray = $this->toArray();
-        $snapshot = [];
-        if ($this->getOperationMade() === parent::OP_UPDATE) {
-            $snapshot = $this->getSnapshotData();
-        }
-
-        self::processCacheByUK($serviceName, $currentKvArray, $snapshot);
-        self::processCacheByNonUK($serviceName, $currentKvArray, $snapshot);
-        return true;
-    }
-
-    /**
-     * @param string $serviceName
-     * @param string $cacheKeyWithoutNamespace
-     * @return bool
-     */
-    final static protected function deleteCache($serviceName, $cacheKeyWithoutNamespace)
-    {
-        if ($serviceName === null) {
-            return true;
-        }
-
-        $cacheKey = static::getCacheKeyNamespace() . $cacheKeyWithoutNamespace;
-        /** @var BackendInterface $cacheInterface */
-        $cacheInterface = Di::getDefault()->get($serviceName);
-        if ($cacheInterface->get($cacheKey) !== null) {
-            $cacheInterface->delete($cacheKey);
-        }
-        return true;
-    }
-
-    protected function afterCreate()
-    {
-        $this->processCache();
-    }
-
-    /**
-     * delete cache automatically after updating
-     */
-    protected function afterUpdate()
-    {
-        $this->processCache();
-    }
-
-    /**
-     * delete cache automatically after deleting
-     */
-    protected function afterDelete()
-    {
-        $this->processCache();
-    }
-    /** ##### Cache (by unique keys) auto processing ##### */
-
-    /**
-     * Process internal (protected in subclass) object members when json_encode
-     *  - filtered null out
-     *  - filtered parent member (in Model and ModelBase) out
-     *  - convert filed name into camel style
-     * @return array
-     */
-    final public function JsonSerialize()
-    {
-        $modelClassName = get_class($this);
-        $hashSet = [];
-        $ref = new \ReflectionClass($modelClassName);
-        foreach ($ref->getProperties() as $refProp) {
-            if ($refProp->class === $modelClassName) {
-                $hashSet[$refProp->name] = true;
-            }
-        }
-
-        $return = [];
-        foreach (get_object_vars($this) as $k => $v) {
-            if ($v !== null && array_key_exists($k, $hashSet)) {
-                $return[lcfirst(Text::camelize($k))] = $v;
-            }
-        }
-        return $return;
-    }
-
-    /**
-     * Copy values from other instance
-     * @param ModelBase $other
-     * @return bool
-     */
-    final public function copyPropFrom(ModelBase $other)
-    {
-        $modelClassName = get_class($this);
-        if (get_class($other) !== $modelClassName) {
-            return false;
-        }
-
-        $ref = new \ReflectionClass($modelClassName);
-        foreach ($ref->getProperties() as $refProp) {
-            $propName = $refProp->name;
-            if ($refProp->class === $modelClassName && $other->$propName !== null
-                && $this->$propName !== $other->$propName) {
-                $this->$propName = $other->$propName;
-            }
-        }
-        return true;
-    }
-
-    /** ##### Private methods ##### */
     /**
      * @param array $bind
      * @param bool $selectForUpdate
@@ -466,9 +274,9 @@ class ModelBase extends Model implements \JsonSerializable
         if ($selectForUpdate) {
             $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
         } else {
-            $defaultCacheServiceName = self::chooseCacheService();
-            if ($defaultCacheServiceName !== null) {
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $defaultCacheServiceName;
+            $cacheServiceName = self::chooseCacheService();
+            if ($cacheServiceName !== null) {
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
                 $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() .
                     self::generateCacheKeyByKV($bind, static::getUniqueKeyEncodeWay());
             }
@@ -522,7 +330,7 @@ class ModelBase extends Model implements \JsonSerializable
         if ($do->isForUpdate()) {
             $param[BuiltinKey::MODEL_FOR_UPDATE] = true;
         } else {
-            $defaultCacheServiceName = self::chooseCacheService($do->getCacheService());
+            $cacheServiceName = self::chooseCacheService($do->getCacheService());
             if ($do->getCacheKeyRule()) {
                 /**
                  * We don't check if $do->getBind() returns empty array
@@ -534,8 +342,8 @@ class ModelBase extends Model implements \JsonSerializable
                 $cacheKey = $do->getCacheKey();
             }
 
-            if ($defaultCacheServiceName !== null && $cacheKey) {
-                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $defaultCacheServiceName;
+            if ($cacheServiceName !== null && $cacheKey) {
+                $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_SERVICE] = $cacheServiceName;
                 $param[BuiltinKey::MODEL_CACHE][BuiltinKey::MODEL_CACHE_KEY] = static::getCacheKeyNamespace() . $cacheKey;
                 if ($do->getCacheLifeTime()) {
                     $param[BuiltinKey::MODEL_CACHE][BuiltinKey::CACHE_LIFETIME] = $do->getCacheLifeTime();
@@ -554,13 +362,17 @@ class ModelBase extends Model implements \JsonSerializable
      * @param int|string $id
      * @return bool
      */
-    final static private function checkPkIdRange($id)
+    final static private function validatePkIdRange($id)
     {
+        if (!static::$autoValidatePkIdRange) {
+            return true;
+        }
+
         $cacheServiceName = self::chooseCacheService();
         if ($cacheServiceName === null) {
             return true;
         } else {
-            $pkField = static::getFieldNameOfPK();
+            $pkField = static::$pkFieldName;
             $do = new ModelQueryDO();
             $do->setColumns("max($pkField) as max, min($pkField) as min");
             $do->setCacheKeyRule(self::CACHE_KEY_RULE_MIN_MAX_PK_ID);
@@ -572,19 +384,112 @@ class ModelBase extends Model implements \JsonSerializable
             }
         }
     }
+    /** ##### Utilities for DB SELECT ##### */
+
+    /** ##### Cache (by unique keys) auto processing ##### */
+    /**
+     * @param array $uniqueKeysAndValues
+     * @param int $encodeWay
+     * @return string
+     */
+    static protected function generateCacheKeyByKV(array $uniqueKeysAndValues, $encodeWay)
+    {
+        ksort($uniqueKeysAndValues);
+        return implode("-", array_keys($uniqueKeysAndValues)) . "." .
+        self::encodeSortedValue($uniqueKeysAndValues, $encodeWay);
+    }
 
     /**
-     * @return array
+     * @param array $kvArray
+     * @param string $keyRule
+     * @return string
      */
-    static private function getNonUniqueCacheKeyRulesWithDefault()
+    static protected function generateCacheKeyByKVAndRule(array $kvArray, $keyRule)
     {
-        $defaultNonUniqueCacheKeyRules = [
-            self::CACHE_KEY_RULE_MIN_MAX_PK_ID => [self::CACHE_KEY_FIELD_LIST_EMPTY]
-        ];
-        if (!is_array(static::getNonUniqueCacheKeyRules())) {
-            return $defaultNonUniqueCacheKeyRules;
+        ksort($kvArray);
+        if (static::getNonUniqueCacheKeyRules() === null) {
+            $cacheKeyRules = self::$nonUniqueCacheKeyRules;
+        } else {
+            $cacheKeyRules = array_merge(self::$nonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
         }
-        return array_merge($defaultNonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
+        if ($cacheKeyRules[$keyRule][0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
+            return $keyRule;
+        } else {
+            $encodeWay = self::CACHE_KEY_ENCODE_NONE;
+            if (isset($cacheKeyRules[$keyRule][1])) {
+                $encodeWay = $cacheKeyRules[$keyRule][1];
+            }
+            return $keyRule . "." . self::encodeSortedValue($kvArray, $encodeWay);
+        }
+    }
+
+    /**
+     * @param array $kvArray
+     * @param int $encodeWay
+     * @return string
+     */
+    static protected function encodeSortedValue($kvArray, $encodeWay)
+    {
+        $valueString = implode("-", array_values($kvArray));
+        switch ($encodeWay) {
+            case self::CACHE_KEY_ENCODE_BASE64:
+                $cacheKey = StringUtil::base64EncodeWithoutSlash($valueString);
+                break;
+            case self::CACHE_KEY_ENCODE_CRC32:
+                $cacheKey = crc32($valueString);
+                break;
+            case self::CACHE_KEY_ENCODE_MD5:
+                $cacheKey = md5($valueString);
+                break;
+            case self::CACHE_KEY_ENCODE_NONE:
+            default:
+                $cacheKey = $valueString;
+                break;
+        }
+        return $cacheKey;
+    }
+
+    /**
+     * Choose cache service, follow this order:
+     * 1. passed by the parameter
+     * 2. returned via Model::getCacheService()
+     * 3. injected via DI
+     * @param string $serviceName
+     * @return string
+     */
+    final static protected function chooseCacheService($serviceName = null)
+    {
+        $nameList = [$serviceName, static::getCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
+        foreach($nameList as $name) {
+            if ($name && Di::getDefault()->has($name)
+                && Di::getDefault()->get($name) instanceof BackendInterface) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * process cache
+     * @return bool
+     */
+    final protected function processCache()
+    {
+        $serviceName = self::chooseCacheService();
+        if ($serviceName === null) {
+            return true;
+        }
+
+        $currentKvArray = $this->toArray();
+        $snapshot = [];
+        if ($this->getOperationMade() === parent::OP_UPDATE) {
+            $snapshot = $this->getSnapshotData();
+        }
+
+        $this->processCacheByUK($serviceName, $currentKvArray, $snapshot);
+        $this->processCacheByNonUK($serviceName, $currentKvArray, $snapshot);
+        return true;
     }
 
     /**
@@ -594,11 +499,11 @@ class ModelBase extends Model implements \JsonSerializable
      * @param array $snapshot
      * @return bool
      */
-    final private static function processCacheByUK($serviceName, $currentKvArray, $snapshot)
+    final protected function processCacheByUK($serviceName, $currentKvArray, $snapshot)
     {
         $uniqueKeys = static::getUniqueKeys();
-        if (static::getFieldNameOfPK() !== null) {
-            $uniqueKeys[] = static::getFieldNameOfPK();
+        if (static::$pkFieldName !== null) {
+            $uniqueKeys[] = static::$pkFieldName;
         }
 
         if (!is_array($uniqueKeys)) {
@@ -636,9 +541,14 @@ class ModelBase extends Model implements \JsonSerializable
      * @param array $snapshot
      * @return bool
      */
-    final private static function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
+    final protected function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
     {
-        $keyRules = self::getNonUniqueCacheKeyRulesWithDefault();
+        if (static::getNonUniqueCacheKeyRules() === null) {
+            $keyRules = self::$nonUniqueCacheKeyRules;
+        } else {
+            $keyRules = array_merge(self::$nonUniqueCacheKeyRules, static::getNonUniqueCacheKeyRules());
+        }
+
         foreach($keyRules as $ruleName => $keyRule) {
             $kv = [];
             $kvOld = [];
@@ -668,5 +578,94 @@ class ModelBase extends Model implements \JsonSerializable
         }
         return true;
     }
-    /** ##### Private methods ##### */
+
+    /**
+     * @param string $serviceName
+     * @param string $cacheKeyWithoutNamespace
+     * @return bool
+     */
+    final static protected function deleteCache($serviceName, $cacheKeyWithoutNamespace)
+    {
+        if ($serviceName === null) {
+            return true;
+        }
+
+        $cacheKey = static::getCacheKeyNamespace() . $cacheKeyWithoutNamespace;
+        /** @var BackendInterface $cacheInterface */
+        $cacheInterface = Di::getDefault()->get($serviceName);
+        if ($cacheInterface->get($cacheKey) !== null) {
+            $cacheInterface->delete($cacheKey);
+        }
+        return true;
+    }
+
+    protected function afterCreate()
+    {
+        $this->processCache();
+    }
+
+    /**
+     * delete cache automatically after updating
+     */
+    protected function afterUpdate()
+    {
+        $this->processCache();
+    }
+
+    /**
+     * delete cache automatically after deleting
+     */
+    protected function afterDelete()
+    {
+        $this->processCache();
+    }
+    /** ##### Cache (by unique keys) auto processing ##### */
+
+    /**
+     * Process internal (protected in subclass) object members when json_encode
+     *  - filtered null out
+     *  - filtered parent member (in Model and ModelBase) out
+     * @return array
+     */
+    final public function JsonSerialize()
+    {
+        $modelClassName = get_class($this);
+        $hashSet = [];
+        $ref = new \ReflectionClass($modelClassName);
+        foreach ($ref->getProperties() as $refProp) {
+            if ($refProp->class === $modelClassName) {
+                $hashSet[$refProp->name] = true;
+            }
+        }
+
+        $return = [];
+        foreach (get_object_vars($this) as $k => $v) {
+            if ($v !== null && array_key_exists($k, $hashSet)) {
+                $return[lcfirst(Text::camelize($k))] = $v;
+            }
+        }
+        return $return;
+    }
+
+    /**
+     * @param ModelBase $other
+     * @return bool
+     */
+    final public function copyPropFrom(ModelBase $other)
+    {
+        $modelClassName = get_class($this);
+        if (get_class($other) !== $modelClassName) {
+            return false;
+        }
+
+        $ref = new \ReflectionClass($modelClassName);
+        foreach ($ref->getProperties() as $refProp) {
+            $propName = $refProp->name;
+            if ($refProp->class === $modelClassName && $other->$propName !== null
+                && $this->$propName !== $other->$propName) {
+                $this->$propName = $other->$propName;
+            }
+        }
+        return true;
+    }
 }
