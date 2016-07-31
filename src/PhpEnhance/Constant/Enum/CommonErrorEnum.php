@@ -10,7 +10,8 @@ namespace OK\PhpEnhance\Constant\Enum;
 
 use OK\PhpEnhance\DataStructure\Enum;
 
-class CommonErrorEnum extends Enum {
+class CommonErrorEnum extends Enum
+{
     const FORBIDDEN = 403;
     const ITEM_NOT_EXISTS = 404;
     const PRECONDITION_FAILED = 412;

@@ -94,7 +94,7 @@ class MptModel extends ModelBase
             static::getFieldNameOfRootId() . "," . static::getFieldNameOfRightValue()
         ];
     }
-    
+
     /**
      * Get all node list of a tree
      * Root is on the top
@@ -356,7 +356,7 @@ class MptModel extends ModelBase
 
     /**
      * leaf node means node has no child
-     * 
+     *
      * @return bool
      */
     public function isLeafNode()

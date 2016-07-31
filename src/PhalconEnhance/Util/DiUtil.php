@@ -2,13 +2,12 @@
 namespace OK\PhalconEnhance\Util;
 
 use OK\PhalconEnhance\Constant\BuiltinServiceName;
+use Phalcon\Db\AdapterInterface as DbAdapter;
 use Phalcon\Di;
-use Phalcon\Di\FactoryDefault;
 use Phalcon\Loader;
 use Phalcon\Logger\Adapter;
 use Phalcon\Queue\Beanstalk;
 use Phalcon\Session\AdapterInterface as SessionAdapter;
-use Phalcon\Db\AdapterInterface as DbAdapter;
 use Pheanstalk\Pheanstalk;
 
 /**

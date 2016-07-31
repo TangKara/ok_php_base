@@ -260,7 +260,7 @@ abstract class SearchIndexBase
         try {
             $result = $this->client->indices()->putMapping($param);
             return $result[SdkArrayKey::RESPONSE_ACKNOWLEDGED];
-        }  catch (\Exception $e) {
+        } catch (\Exception $e) {
             return false;
         }
     }
@@ -275,7 +275,7 @@ abstract class SearchIndexBase
         try {
             $mappings = $this->client->indices()->getMapping($param);
             return $mappings[$this->indexName][SdkArrayKey::MAPPING][$this->type][SdkArrayKey::MAPPING_PROPERTIES];
-        }  catch (\Exception $e) {
+        } catch (\Exception $e) {
             return [];
         }
     }
@@ -292,7 +292,7 @@ abstract class SearchIndexBase
         try {
             $result = $this->client->indices()->create($param);
             return $result[SdkArrayKey::RESPONSE_ACKNOWLEDGED];
-        }  catch (\Exception $e) {
+        } catch (\Exception $e) {
             return false;
         }
     }
@@ -309,7 +309,7 @@ abstract class SearchIndexBase
         try {
             $result = $this->client->indices()->putSettings($param);
             return $result[SdkArrayKey::RESPONSE_ACKNOWLEDGED];
-        }  catch (\Exception $e) {
+        } catch (\Exception $e) {
             return false;
         }
     }
@@ -339,7 +339,7 @@ abstract class SearchIndexBase
         try {
             $result = $this->client->suggest($param);
             return $result[$suggestName][0][SdkArrayKey::SG_RESULT_OPTIONS];
-        }  catch (\Exception $e) {
+        } catch (\Exception $e) {
             return [];
         }
     }
@@ -356,7 +356,7 @@ abstract class SearchIndexBase
     protected function initialize()
     {
         $className = get_called_class();
-        $this->type = substr($className, strrpos($className, "\\")+1);
+        $this->type = substr($className, strrpos($className, "\\") + 1);
     }
 
     /**

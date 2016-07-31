@@ -27,7 +27,7 @@ class IntArray extends Validator
         /** @var array $array */
         $array = $validation->getValue($attribute);
         if (is_array($array) && count($array) > 0) {
-            foreach($array as $element) {
+            foreach ($array as $element) {
                 if (!is_int($element) && !ctype_digit($element)) {
                     $isIntArray = false;
                 }

@@ -85,7 +85,7 @@ class ValidatorUtil
                 }
                 return new MaxLength($option);
             case ValidatorKeyEnum::MATCH_REGEX:
-                if ($rule[1][0] !== "/"){
+                if ($rule[1][0] !== "/") {
                     $option[BuiltinKey::VALIDATOR_RE_PATTERN] = "/" . $rule[1] . "/";
                 } else {
                     $option[BuiltinKey::VALIDATOR_RE_PATTERN] = $rule[1];

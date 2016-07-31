@@ -31,7 +31,7 @@ class FileUtil
      */
     static public function verifyFile(ChecksumTypeEnum $checksumType, $checksum, $filePath, $size = 0)
     {
-        if ($size !== 0 && filesize($filePath) !== (int) $size) {
+        if ($size !== 0 && filesize($filePath) !== (int)$size) {
             return false;
         }
 
