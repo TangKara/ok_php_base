@@ -246,7 +246,7 @@ class MptModel extends ModelBase
         $this->$fieldNameOfRightValue = $this->$fieldNameOfLeftValue + 1;
 
         $do = new ModelQueryDO();
-        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfLeftValue >= :$fieldNameOfLeftValue:");
+        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: AND $fieldNameOfLeftValue >= :$fieldNameOfLeftValue:");
         $do->setBind([
             $fieldNameOfRootId => $this->$fieldNameOfRootId,
             $fieldNameOfLeftValue => $this->$fieldNameOfLeftValue
@@ -260,7 +260,7 @@ class MptModel extends ModelBase
         }
 
         $do = new ModelQueryDO();
-        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfRightValue >= :$fieldNameOfRightValue:");
+        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: AND $fieldNameOfRightValue >= :$fieldNameOfRightValue:");
         $do->setBind([
             $fieldNameOfRootId => $this->$fieldNameOfRootId,
             $fieldNameOfRightValue => $this->$fieldNameOfLeftValue
@@ -274,8 +274,8 @@ class MptModel extends ModelBase
         }
 
         $do = new ModelQueryDO();
-        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfLeftValue < :$fieldNameOfLeftValue:
-        and $fieldNameOfRightValue > :$fieldNameOfRightValue:");
+        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: AND $fieldNameOfLeftValue < :$fieldNameOfLeftValue:
+        AND $fieldNameOfRightValue > :$fieldNameOfRightValue:");
         $do->setBind([
             $fieldNameOfRootId => $this->$fieldNameOfRootId,
             $fieldNameOfLeftValue => $this->$fieldNameOfLeftValue,
@@ -307,7 +307,7 @@ class MptModel extends ModelBase
 
         $do = new ModelQueryDO();
         $do->setForUpdate(true);
-        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfLeftValue > :$fieldNameOfLeftValue:");
+        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: AND $fieldNameOfLeftValue > :$fieldNameOfLeftValue:");
         $do->setBind([
             $fieldNameOfRootId => $this->$fieldNameOfRootId,
             $fieldNameOfLeftValue => $this->$fieldNameOfLeftValue
@@ -322,7 +322,7 @@ class MptModel extends ModelBase
 
         $do = new ModelQueryDO();
         $do->setForUpdate(true);
-        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: and $fieldNameOfRightValue > :$fieldNameOfRightValue:");
+        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: AND $fieldNameOfRightValue > :$fieldNameOfRightValue:");
         $do->setBind([
             $fieldNameOfRootId => $this->$fieldNameOfRootId,
             $fieldNameOfRightValue => $this->$fieldNameOfRightValue
@@ -335,6 +335,18 @@ class MptModel extends ModelBase
             }
         }
         return true;
+    }
+
+    /**
+     * leaf node means node has no child
+     *
+     * @return bool
+     */
+    public function isLeafNode()
+    {
+        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
+        $fieldNameOfRightValue = static::getFieldNameOfRightValue();
+        return (int)$this->$fieldNameOfRightValue - (int)$this->$fieldNameOfLeftValue === 1;
     }
 
     /**
@@ -352,17 +364,5 @@ class MptModel extends ModelBase
             static::getFieldNameOfRootId()
         ]);
         return $this->update();
-    }
-
-    /**
-     * leaf node means node has no child
-     *
-     * @return bool
-     */
-    public function isLeafNode()
-    {
-        $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
-        $fieldNameOfRightValue = static::getFieldNameOfRightValue();
-        return (int)$this->$fieldNameOfRightValue - (int)$this->$fieldNameOfLeftValue === 1;
     }
 }
