@@ -276,211 +276,6 @@ class ModelBase extends Model implements \JsonSerializable
     }
     /** ##### Utilities for DB SELECT ##### */
 
-    /** ##### Cache (by unique keys) auto processing ##### */
-    /**
-     * @param array $uniqueKeysAndValues
-     * @param int $encodeWay
-     * @return string
-     */
-    static protected function generateCacheKeyByKV(array $uniqueKeysAndValues, $encodeWay)
-    {
-        ksort($uniqueKeysAndValues);
-        return implode("-", array_keys($uniqueKeysAndValues)) . "." .
-        self::encodeSortedValue($uniqueKeysAndValues, $encodeWay);
-    }
-
-    /**
-     * @param array $kvArray
-     * @param string $keyRule
-     * @return string
-     */
-    static protected function generateCacheKeyByKVAndRule(array $kvArray, $keyRule)
-    {
-        $cacheKeyRules = self::getNonUniqueCacheKeyRulesWithDefault();
-        if ($cacheKeyRules[$keyRule][0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
-            return $keyRule;
-        } else {
-            $encodeWay = self::CACHE_KEY_ENCODE_NONE;
-            if (isset($cacheKeyRules[$keyRule][1])) {
-                $encodeWay = $cacheKeyRules[$keyRule][1];
-            }
-            ksort($kvArray);
-            return $keyRule . "." . self::encodeSortedValue($kvArray, $encodeWay);
-        }
-    }
-
-    /**
-     * @param array $kvArray
-     * @param int $encodeWay
-     * @return string
-     */
-    static protected function encodeSortedValue($kvArray, $encodeWay)
-    {
-        $valueString = implode("-", array_values($kvArray));
-        switch ($encodeWay) {
-            case self::CACHE_KEY_ENCODE_BASE64:
-                $cacheKey = StringUtil::base64EncodeWithoutSlash($valueString);
-                break;
-            case self::CACHE_KEY_ENCODE_CRC32:
-                $cacheKey = crc32($valueString);
-                break;
-            case self::CACHE_KEY_ENCODE_MD5:
-                $cacheKey = md5($valueString);
-                break;
-            case self::CACHE_KEY_ENCODE_NONE:
-            default:
-                $cacheKey = $valueString;
-                break;
-        }
-        return $cacheKey;
-    }
-
-    /**
-     * Choose cache service, follow this order:
-     * 1. passed by the parameter
-     * 2. returned via Model::getCacheService()
-     * 3. injected via DI
-     * @param string $serviceName
-     * @return string
-     */
-    final static protected function chooseCacheService($serviceName = null)
-    {
-        $nameList = [$serviceName, static::getDefaultCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
-        foreach($nameList as $name) {
-            if ($name && Di::getDefault()->has($name)
-                && Di::getDefault()->get($name) instanceof BackendInterface) {
-                return $name;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * process cache
-     * @return bool
-     */
-    final protected function processCache()
-    {
-        $serviceName = self::chooseCacheService();
-        if ($serviceName === null) {
-            return true;
-        }
-
-        $currentKvArray = $this->toArray();
-        $snapshot = [];
-        if ($this->getOperationMade() === parent::OP_UPDATE) {
-            $snapshot = $this->getSnapshotData();
-        }
-
-        self::processCacheByUK($serviceName, $currentKvArray, $snapshot);
-        self::processCacheByNonUK($serviceName, $currentKvArray, $snapshot);
-        return true;
-    }
-
-    /**
-     * process cache by unique key(s)
-     * @param string $serviceName
-     * @param array $currentKvArray
-     * @param array $snapshot
-     * @return bool
-     */
-    final protected static function processCacheByUK($serviceName, $currentKvArray, $snapshot)
-    {
-        $uniqueKeys = static::getUniqueKeys();
-        if (static::getFieldNameOfPK() !== null) {
-            $uniqueKeys[] = static::getFieldNameOfPK();
-        }
-
-        if (!is_array($uniqueKeys)) {
-            return true;
-        }
-
-        foreach($uniqueKeys as $ukString) {
-            $kv = [];
-            $kvOld = [];
-            foreach (explode(",", $ukString) as $field) {
-                $field = trim($field);
-                if (array_key_exists($field, $currentKvArray)) {
-                    $kv[$field] = $currentKvArray[$field];
-                }
-                if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
-                    $kvOld[$field] = $snapshot[$field];
-                }
-            }
-            if (count($kv)) {
-                $cacheKey = self::generateCacheKeyByKV($kv, static::getUniqueKeyEncodeWay());
-                self::deleteCache($serviceName, $cacheKey);
-            }
-            if (count($kvOld)) {
-                $cacheKey = self::generateCacheKeyByKV($kvOld, static::getUniqueKeyEncodeWay());
-                self::deleteCache($serviceName, $cacheKey);
-            }
-        }
-        return true;
-    }
-
-    /**
-     * process cache by unique key(s)
-     * @param string $serviceName
-     * @param array $currentKvArray
-     * @param array $snapshot
-     * @return bool
-     */
-    final protected static function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
-    {
-        $keyRules = self::getNonUniqueCacheKeyRulesWithDefault();
-        foreach($keyRules as $ruleName => $keyRule) {
-            $kv = [];
-            $kvOld = [];
-            if ($keyRule[0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
-                $kv = $currentKvArray;
-                $kvOld = $snapshot;
-            } else {
-                foreach (explode(",", $keyRule[0]) as $field) {
-                    $field = trim($field);
-                    if (array_key_exists($field, $currentKvArray)) {
-                        $kv[$field] = $currentKvArray[$field];
-                    }
-
-                    if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
-                        $kvOld[$field] = $snapshot[$field];
-                    }
-                }
-            }
-            if (count($kv)) {
-                $cacheKey = self::generateCacheKeyByKVAndRule($kv, $ruleName);
-                self::deleteCache($serviceName, $cacheKey);
-            }
-            if (count($kvOld)) {
-                $cacheKey = self::generateCacheKeyByKVAndRule($kvOld, $ruleName);
-                self::deleteCache($serviceName, $cacheKey);
-            }
-        }
-        return true;
-    }
-
-    /**
-     * @param string $serviceName
-     * @param string $cacheKeyWithoutNamespace
-     * @return bool
-     */
-    final static protected function deleteCache($serviceName, $cacheKeyWithoutNamespace)
-    {
-        if ($serviceName === null) {
-            return true;
-        }
-
-        $cacheKey = static::getCacheKeyNamespace() . $cacheKeyWithoutNamespace;
-        /** @var BackendInterface $cacheInterface */
-        $cacheInterface = Di::getDefault()->get($serviceName);
-        if ($cacheInterface->get($cacheKey) !== null) {
-            $cacheInterface->delete($cacheKey);
-        }
-        return true;
-    }
-    /** ##### Cache (by unique keys) auto processing ##### */
-
     /**
      * Process internal (protected in subclass) object members when json_encode
      *  - filtered null out
@@ -674,4 +469,209 @@ class ModelBase extends Model implements \JsonSerializable
         }
     }
     /** ##### Private methods ##### */
+
+    /** ##### Cache auto processing ##### */
+    /**
+     * Choose cache service, follow this order:
+     * 1. passed by the parameter
+     * 2. returned via Model::getCacheService()
+     * 3. injected via DI
+     * @param string $serviceName
+     * @return string
+     */
+    final static private function chooseCacheService($serviceName = null)
+    {
+        $nameList = [$serviceName, static::getDefaultCacheService(), BuiltinServiceName::DEFAULT_MODELS_CACHE];
+        foreach($nameList as $name) {
+            if ($name && Di::getDefault()->has($name)
+                && Di::getDefault()->get($name) instanceof BackendInterface) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string $serviceName
+     * @param string $cacheKeyWithoutNamespace
+     * @return bool
+     */
+    final static private function deleteCache($serviceName, $cacheKeyWithoutNamespace)
+    {
+        if ($serviceName === null) {
+            return true;
+        }
+
+        $cacheKey = static::getCacheKeyNamespace() . $cacheKeyWithoutNamespace;
+        /** @var BackendInterface $cacheInterface */
+        $cacheInterface = Di::getDefault()->get($serviceName);
+        if ($cacheInterface->get($cacheKey) !== null) {
+            $cacheInterface->delete($cacheKey);
+        }
+        return true;
+    }
+
+    /**
+     * @param array $kvArray
+     * @param int $encodeWay
+     * @return string
+     */
+    static private function encodeSortedValue($kvArray, $encodeWay)
+    {
+        $valueString = implode("-", array_values($kvArray));
+        switch ($encodeWay) {
+            case self::CACHE_KEY_ENCODE_BASE64:
+                $cacheKey = StringUtil::base64EncodeWithoutSlash($valueString);
+                break;
+            case self::CACHE_KEY_ENCODE_CRC32:
+                $cacheKey = crc32($valueString);
+                break;
+            case self::CACHE_KEY_ENCODE_MD5:
+                $cacheKey = md5($valueString);
+                break;
+            case self::CACHE_KEY_ENCODE_NONE:
+            default:
+                $cacheKey = $valueString;
+                break;
+        }
+        return $cacheKey;
+    }
+
+    /**
+     * @param array $uniqueKeysAndValues
+     * @param int $encodeWay
+     * @return string
+     */
+    static private function generateCacheKeyByKV(array $uniqueKeysAndValues, $encodeWay)
+    {
+        ksort($uniqueKeysAndValues);
+        return implode("-", array_keys($uniqueKeysAndValues)) . "." .
+        self::encodeSortedValue($uniqueKeysAndValues, $encodeWay);
+    }
+
+    /**
+     * @param array $kvArray
+     * @param string $keyRule
+     * @return string
+     */
+    static private function generateCacheKeyByKVAndRule(array $kvArray, $keyRule)
+    {
+        $cacheKeyRules = self::getNonUniqueCacheKeyRulesWithDefault();
+        if ($cacheKeyRules[$keyRule][0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
+            return $keyRule;
+        } else {
+            $encodeWay = self::CACHE_KEY_ENCODE_NONE;
+            if (isset($cacheKeyRules[$keyRule][1])) {
+                $encodeWay = $cacheKeyRules[$keyRule][1];
+            }
+            ksort($kvArray);
+            return $keyRule . "." . self::encodeSortedValue($kvArray, $encodeWay);
+        }
+    }
+
+    /**
+     * process cache
+     * @return bool
+     */
+    final private function processCache()
+    {
+        $serviceName = self::chooseCacheService();
+        if ($serviceName === null) {
+            return true;
+        }
+
+        $currentKvArray = $this->toArray();
+        $snapshot = [];
+        if ($this->getOperationMade() === parent::OP_UPDATE) {
+            $snapshot = $this->getSnapshotData();
+        }
+
+        self::processCacheByUK($serviceName, $currentKvArray, $snapshot);
+        self::processCacheByNonUK($serviceName, $currentKvArray, $snapshot);
+        return true;
+    }
+
+    /**
+     * process cache by unique key(s)
+     * @param string $serviceName
+     * @param array $currentKvArray
+     * @param array $snapshot
+     * @return bool
+     */
+    final private static function processCacheByUK($serviceName, $currentKvArray, $snapshot)
+    {
+        $uniqueKeys = static::getUniqueKeys();
+        if (static::getFieldNameOfPK() !== null) {
+            $uniqueKeys[] = static::getFieldNameOfPK();
+        }
+
+        if (!is_array($uniqueKeys)) {
+            return true;
+        }
+
+        foreach($uniqueKeys as $ukString) {
+            $kv = [];
+            $kvOld = [];
+            foreach (explode(",", $ukString) as $field) {
+                $field = trim($field);
+                if (array_key_exists($field, $currentKvArray)) {
+                    $kv[$field] = $currentKvArray[$field];
+                }
+                if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
+                    $kvOld[$field] = $snapshot[$field];
+                }
+            }
+            if (count($kv)) {
+                $cacheKey = self::generateCacheKeyByKV($kv, static::getUniqueKeyEncodeWay());
+                self::deleteCache($serviceName, $cacheKey);
+            }
+            if (count($kvOld)) {
+                $cacheKey = self::generateCacheKeyByKV($kvOld, static::getUniqueKeyEncodeWay());
+                self::deleteCache($serviceName, $cacheKey);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * process cache by unique key(s)
+     * @param string $serviceName
+     * @param array $currentKvArray
+     * @param array $snapshot
+     * @return bool
+     */
+    final private static function processCacheByNonUK($serviceName, $currentKvArray, $snapshot)
+    {
+        $keyRules = self::getNonUniqueCacheKeyRulesWithDefault();
+        foreach($keyRules as $ruleName => $keyRule) {
+            $kv = [];
+            $kvOld = [];
+            if ($keyRule[0] === self::CACHE_KEY_FIELD_LIST_EMPTY) {
+                $kv = $currentKvArray;
+                $kvOld = $snapshot;
+            } else {
+                foreach (explode(",", $keyRule[0]) as $field) {
+                    $field = trim($field);
+                    if (array_key_exists($field, $currentKvArray)) {
+                        $kv[$field] = $currentKvArray[$field];
+                    }
+
+                    if (is_array($snapshot) && array_key_exists($field, $snapshot)) {
+                        $kvOld[$field] = $snapshot[$field];
+                    }
+                }
+            }
+            if (count($kv)) {
+                $cacheKey = self::generateCacheKeyByKVAndRule($kv, $ruleName);
+                self::deleteCache($serviceName, $cacheKey);
+            }
+            if (count($kvOld)) {
+                $cacheKey = self::generateCacheKeyByKVAndRule($kvOld, $ruleName);
+                self::deleteCache($serviceName, $cacheKey);
+            }
+        }
+        return true;
+    }
+    /** ##### Cache auto processing ##### */
 }
