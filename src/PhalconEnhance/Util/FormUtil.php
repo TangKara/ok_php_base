@@ -20,7 +20,7 @@ class FormUtil
      * @param Form $form
      * @param ElementInterface $element
      * @param boolean $nullable
-     * @return $this
+     * @return Form
      */
     static public function autoInitField(Form $form, ElementInterface $element, $nullable = true)
     {

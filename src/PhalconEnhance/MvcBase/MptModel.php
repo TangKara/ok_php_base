@@ -236,8 +236,6 @@ class MptModel extends ModelBase
      */
     public function create($data = [], $whiteList = [])
     {
-        unset($data, $whiteList);
-
         $fieldNameOfDepth = static::getFieldNameOfDepth();
         $fieldNameOfLeftValue = static::getFieldNameOfLeftValue();
         $fieldNameOfRightValue = static::getFieldNameOfRightValue();

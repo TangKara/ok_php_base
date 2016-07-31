@@ -21,7 +21,7 @@ class CommonUtil
         $includedData = null;
         if (file_exists($file)) {
             /** @noinspection PhpIncludeInspection */
-            $includedData = include($file);
+            $includedData = include $file;
         }
 
         if (!$includedData && $returnEmptyArray) {
