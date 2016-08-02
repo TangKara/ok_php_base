@@ -88,4 +88,38 @@ class QueueUtil
         }
         return true;
     }
+
+    /**
+     * @param string $serviceName
+     * @param string $tube
+     * @param int $jobId
+     * @return bool|\Phalcon\Queue\Beanstalk\Job
+     */
+    static public function getJob($serviceName, $tube, $jobId)
+    {
+        $cacheKey = $serviceName . "-" . $tube;
+        if (array_key_exists($cacheKey, self::$tubePoolMap)) {
+            $queue = self::$tubePoolMap[$cacheKey];
+        } else {
+            $queue = DiUtil::getQueueService($serviceName);
+            $queue->choose($tube);
+            self::$tubePoolMap[$cacheKey] = $queue;
+        }
+        return $queue->jobPeek($jobId);
+    }
+
+    /**
+     * @param string $serviceName
+     * @param string $tube
+     * @param int $jobId
+     * @return bool
+     */
+    static public function deleteJob($serviceName, $tube, $jobId)
+    {
+        $job = self::getJob($serviceName, $tube, $jobId);
+        if ($job) {
+            return $job->delete();
+        }
+        return true;
+    }
 }

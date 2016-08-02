@@ -148,6 +148,16 @@ class ModelBase extends Model implements \JsonSerializable
     {
         $this->useDynamicUpdate(true);
     }
+
+    /**
+     * @param null $filter
+     * @return string
+     */
+    public function getMessages($filter = null)
+    {
+        $messages = parent::getMessages($filter);
+        return json_encode($messages);
+    }
     /** ##### Methods for subclass overriding ##### */
 
     /** ##### Utilities for DB SELECT ##### */
