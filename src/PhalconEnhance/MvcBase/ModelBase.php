@@ -16,7 +16,7 @@ use Phalcon\Di;
 use Phalcon\Mvc\Model;
 use Phalcon\Text;
 
-class ModelBase extends Model implements \JsonSerializable
+class ModelBase extends Model
 {
     /**
      * The cache key encode way
@@ -323,7 +323,7 @@ class ModelBase extends Model implements \JsonSerializable
      *  - convert field name into camel style
      * @return array
      */
-    final public function JsonSerialize()
+    final public function jsonSerialize()
     {
         $modelClassName = get_class($this);
         $hashSet = [];
