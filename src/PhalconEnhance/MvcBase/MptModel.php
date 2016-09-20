@@ -72,6 +72,8 @@ class MptModel extends ModelBase
     /** ##### Utilities for node query ##### */
     const CACHE_KEY_RULE_LIST_BY_ROOT_ID = "list_by_root_id";
     const CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE = "list_by_root_id_reverse";
+    const CACHE_KEY_RULE_LIST_BY_ROOT_ID_AND_DEPTH = "list_by_root_id_and_depth";
+
 
     /**
      * @return array
@@ -80,7 +82,8 @@ class MptModel extends ModelBase
     {
         return [
             self::CACHE_KEY_RULE_LIST_BY_ROOT_ID => [static::getFieldNameOfRootId()],
-            self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE => [static::getFieldNameOfRootId()]
+            self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE => [static::getFieldNameOfRootId()],
+            self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_AND_DEPTH => [static::getFieldNameOfRootId(),static::getFieldNameOfDepth()]
         ];
     }
 
@@ -91,7 +94,8 @@ class MptModel extends ModelBase
     {
         return [
             static::getFieldNameOfRootId() . "," . static::getFieldNameOfLeftValue(),
-            static::getFieldNameOfRootId() . "," . static::getFieldNameOfRightValue()
+            static::getFieldNameOfRootId() . "," . static::getFieldNameOfRightValue(),
+            static::getFieldNameOfRootId() . "," . static::getFieldNameOfDepth()
         ];
     }
 
@@ -142,6 +146,31 @@ class MptModel extends ModelBase
         $do->setCacheKeyRule(self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE);
         return parent::findUseDO($do);
     }
+
+    /**
+     * Get node list by depth
+     *
+     * @param $rootId
+     * @param $depth
+     * @return static[]
+     */
+    static public function listByDepth($rootId, $depth)
+    {
+        $fieldNameOfRootId = static::getFieldNameOfRootId();
+        $fieldNameOfDepth = static::getFieldNameOfDepth();
+
+        $do = new ModelQueryDO();
+        $do->setConditions("$fieldNameOfRootId = :$fieldNameOfRootId: AND $fieldNameOfDepth = :$fieldNameOfDepth: ");
+        $do->setBind([
+            $fieldNameOfRootId => $rootId,
+            $fieldNameOfDepth => $depth
+        ]);
+        $do->setOrderBy($fieldNameOfDepth);
+        $do->setCacheKeyRule(self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_AND_DEPTH);
+        return parent::findUseDO($do);
+
+    }
+
     /** ##### Utilities for node query ##### */
 
     /**
