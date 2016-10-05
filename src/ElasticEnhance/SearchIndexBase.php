@@ -130,10 +130,9 @@ abstract class SearchIndexBase
             $param[SdkArrayKey::PARAM_ID] = $this->id;
         }
         $param[SdkArrayKey::PARAM_BODY] = $this->body;
-        $result = $this->client->index($param);
         /** @noinspection BadExceptionsProcessingInspection */
         try {
-            $this->client->index($param);
+            $result = $this->client->index($param);
             $this->setId($result[SdkArrayKey::RESPONSE_ID]);
             return true;
         } catch (\Exception $e) {
