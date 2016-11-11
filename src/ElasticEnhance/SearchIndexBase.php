@@ -10,7 +10,7 @@ namespace OK\ElasticEnhance;
 
 use Elasticsearch\Client;
 use OK\ElasticEnhance\Constant\SdkArrayKey;
-use OK\PhpEnhance\DomainObject\SearchResultDO;
+use OK\ElasticEnhance\DomainObject\SearchResultDO;
 use ONGR\ElasticsearchDSL\Highlight\Highlight;
 use ONGR\ElasticsearchDSL\Search;
 use Phalcon\Di;
@@ -391,7 +391,9 @@ abstract class SearchIndexBase
 
         $itemList = [];
         $highlight = [];
-        foreach ($result[SdkArrayKey::SR_HITS][SdkArrayKey::SR_HITS] as $item) {
+        /** @var array $hits */
+        $hits = $result[SdkArrayKey::SR_HITS][SdkArrayKey::SR_HITS];
+        foreach ($hits as $item) {
             $itemList[] = $item[SdkArrayKey::SR_HITS2_SOURCE];
             if ($search->getHighlight() !== null) {
                 $highlight[$item[SdkArrayKey::SR_HITS2_ID]] = $item[SdkArrayKey::SR_HITS2_HIGHLIGHT];

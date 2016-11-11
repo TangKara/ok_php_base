@@ -6,10 +6,10 @@
  * Time: 下午3:34
  */
 
-namespace OK\PhpEnhance\DomainObject;
+namespace OK\ElasticEnhance\DomainObject;
 
 
-class SearchResultDO extends ServiceReturnDataDO
+class SearchResultDO implements \JsonSerializable
 {
     /**
      * @var int
@@ -114,5 +114,16 @@ class SearchResultDO extends ServiceReturnDataDO
     public function setHighlight($highlight)
     {
         $this->highlight = $highlight;
+    }
+
+    /**
+     * Process internal (protected in subclass) object members when json_encode, filtered null out
+     * @return array
+     */
+    public function JsonSerialize()
+    {
+        return array_filter(get_object_vars($this), function ($v) {
+            return $v !== null;
+        });
     }
 }
