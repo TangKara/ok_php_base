@@ -12,10 +12,14 @@ use Phalcon\Mvc\View;
 use Phalcon\Mvc\View\Engine\Volt;
 class VoltUtil
 {
-    public static function render($templatePath, $params)
+    public static function getString($templatePath, $params)
     {
         $view = new View();
         $volt = new Volt($view);
+        ob_start();
         $volt->render($templatePath, $params);
+        $str = ob_get_contents();
+        ob_clean();
+        return $str;
     }
 }
