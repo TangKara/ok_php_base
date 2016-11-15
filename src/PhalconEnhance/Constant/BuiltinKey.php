@@ -53,6 +53,7 @@ class BuiltinKey
     const DB_USERNAME           = "username";
     const DB_PASSWORD           = "password";
     const DB_NAME               = "dbname";
+    const DB_CHARSET            = "charset";
 
     /** ##### Meta Data ##### */
     const META_DATA_DIR         = "metaDataDir";
