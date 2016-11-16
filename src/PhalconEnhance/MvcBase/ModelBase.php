@@ -156,7 +156,7 @@ class ModelBase extends Model
     public function getMessages($filter = null)
     {
         $messages = parent::getMessages($filter);
-        return json_encode($messages);
+        return serialize($messages);
     }
     /** ##### Methods for subclass overriding ##### */
 
