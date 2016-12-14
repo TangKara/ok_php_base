@@ -294,6 +294,7 @@ class ModelBase extends Model
     /** ##### Utilities for DB SELECT ##### */
 
     /**
+     * Primary filed will be skipped when copying
      * @param ModelBase $other
      * @return bool
      */
@@ -307,6 +308,10 @@ class ModelBase extends Model
         $ref = new \ReflectionClass($modelClassName);
         foreach ($ref->getProperties() as $refProp) {
             $propName = $refProp->name;
+            $fieldNameOfPK = static::getFieldNameOfPK();
+            if ($propName === $fieldNameOfPK || Text::underscore($propName) === $fieldNameOfPK) {
+                continue;
+            }
             if ($refProp->class === $modelClassName && $other->$propName !== null
                 && $this->$propName !== $other->$propName
             ) {
