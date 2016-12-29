@@ -19,7 +19,17 @@ class BuiltinKey
      */
     const CACHE_HOST            = "host";
     const CACHE_PORT            = "port";
+    /**
+     * Memcache Backend
+     */
     const CACHE_PERSISTENT      = "persistent";
+    /**
+     * Libmemcached Backend
+     */
+    const CACHE_SERVERS         = "servers";
+    const CACHE_SERVERS_WEIGHT  = "weight";
+    const CACHE_CLIENT          = "client";
+    const CACHE_PERSISTENT_ID   = "persistent_id";
     /**
      * @default _PHCM
      * statsKey means: phalcon will store all your keys into an item (named by statsKey)
