@@ -83,7 +83,7 @@ class MptModel extends ModelBase
         return [
             self::CACHE_KEY_RULE_LIST_BY_ROOT_ID => [static::getFieldNameOfRootId()],
             self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_REVERSE => [static::getFieldNameOfRootId()],
-            self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_AND_DEPTH => [static::getFieldNameOfRootId(),static::getFieldNameOfDepth()]
+            self::CACHE_KEY_RULE_LIST_BY_ROOT_ID_AND_DEPTH => [static::getFieldNameOfRootId(). "," .static::getFieldNameOfDepth()]
         ];
     }
 
