@@ -4,16 +4,15 @@ if [ ! -f `basename $0` ]; then
     exit 1
 fi
 
+#prepare src dir
+src_dir="/root/rpmbuild/SOURCES"
+mkdir -p ${src_dir}
+
 cwd=`pwd`
 prod_name=`basename ${cwd}`
-src_dir="/root/rpmbuild/SOURCES"
 version=`cat version.txt`
 prod_name_with_version=${prod_name}-${version}
 src_tar_gz=${prod_name_with_version}.tar.gz
-spec_file=${src_dir}/${prod_name}-${version}.spec
-
-#prepare src dir
-mkdir -p ${src_dir}
 
 #compress source
 cd ${src_dir}
@@ -21,10 +20,10 @@ rm -rf ${prod_name_with_version}/
 mkdir -p ${prod_name_with_version}
 cp -r ${cwd}/* ${prod_name_with_version}/
 tar zcf ${src_tar_gz} ${prod_name_with_version}/
-cd ${cwd}
 
+spec_file=${src_dir}/${prod_name_with_version}.spec
 echo "
-Summary:    OpsKitchen.com web php base rpm package
+Summary:    Generic open source php library developed by ops.best
 Name:       ${prod_name}
 Version:    ${version}
 Release:    1
@@ -35,11 +34,8 @@ Group:      Application
 URL:        https://ops.best
 
 %description
-This is php base library for OpsKitchen.com
-
 %prep
 %setup -q
-
 %build
 
 %install
@@ -53,3 +49,7 @@ ${cwd}
 
 #build rpm
 rpmbuild -bb ${spec_file}
+
+#copy as latest pkg
+cd /root/rpmbuild/RPMS/x86_64/
+cp -f ${prod_name_with_version}-1.x86_64.rpm ${prod_name}-latest.x86_64.rpm
