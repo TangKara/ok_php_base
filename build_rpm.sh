@@ -51,5 +51,4 @@ ${cwd}
 rpmbuild -bb ${spec_file}
 
 #copy as latest pkg
-cd /root/rpmbuild/RPMS/x86_64/
-cp -f ${prod_name_with_version}-1.x86_64.rpm ${prod_name}-latest.x86_64.rpm
+cp -f /root/rpmbuild/RPMS/x86_64/${prod_name_with_version}-1.x86_64.rpm /root/rpmbuild/RPMS/x86_64/${prod_name}-latest.x86_64.rpm
