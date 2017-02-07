@@ -28,6 +28,16 @@ class IpUtil
     }
 
     /**
+     * client -> haproxy -> php
+     * Haproxy will set HTTP_X_FORWARDED_FOR header by default
+     * @return string
+     */
+    static public function getIpBehindLb()
+    {
+        return $_SERVER["HTTP_X_FORWARDED_FOR"];
+    }
+
+    /**
      * @return int
      */
     static public function getIpAsUnsignedLong()
