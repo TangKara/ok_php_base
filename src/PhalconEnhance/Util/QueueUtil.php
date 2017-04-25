@@ -57,6 +57,11 @@ class QueueUtil
         }
         for (; ;) {
             $job = $queue->reserve();
+            while (!$job) {
+                $queue = DiUtil::getQueueService($do->getQueue());
+                $queue->watch($do->getTube());
+                $job = $queue->reserve();
+            }
             $body = $job->getBody();
             /** @var ServiceResultDO $resultDO */
             try {
