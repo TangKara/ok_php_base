@@ -36,6 +36,11 @@ class ModelBase extends Model
      */
     const CACHE_KEY_RULE_MIN_MAX_PK_ID = "min_max_pk_id";
 
+    /**
+     * @var array
+     */
+    protected $snapshot;
+
     /** ##### Methods for subclass overriding ##### */
     /**
      * @return string
@@ -146,6 +151,7 @@ class ModelBase extends Model
      */
     public function beforeUpdate()
     {
+        $this->snapshot = $this->getSnapshotData();
         $this->useDynamicUpdate(true);
     }
 
@@ -612,7 +618,7 @@ class ModelBase extends Model
         $currentKvArray = $this->toArray();
         $snapshot = [];
         if ($this->getOperationMade() === parent::OP_UPDATE) {
-            $snapshot = $this->getSnapshotData();
+            $snapshot = $this->snapshot;
         }
 
         self::processCacheByUK($cacheServiceName, $currentKvArray, $snapshot);
